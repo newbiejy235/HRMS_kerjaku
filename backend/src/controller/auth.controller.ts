@@ -10,8 +10,12 @@ import {
 import { employe } from "../validation/employe.validation";
 import { loginSchema, registerSchema } from "../validation/auth.validation";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { and, eq, sql } from "drizzle-orm";
 import { ZodError } from "zod";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 // Generate employee code yang unik terhadap DB
 async function generateEmployeeCode(): Promise<string> {
@@ -157,7 +161,11 @@ export class Authentication {
         });
       }
 
-      const rehashedPassword = await bcrypt.compare(password, tryLogin.password);
+      const rehashedPassword = await bcrypt.compare(
+        password,
+        tryLogin.password,
+      );
+
       if (!rehashedPassword) {
         return res.status(404).json({
           success: false,
@@ -165,15 +173,35 @@ export class Authentication {
         });
       }
 
-       return res.status(200).json({
-          success: true,
-          message: "Berhasil login",
-       })
+      const token = jwt.sign(
+        {
+          userId: tryLogin.id,
+          email: tryLogin.email,
+          role: tryLogin.role,
+        },
+        process.env.JWT_SECRET!,
+        {
+          expiresIn: "1d",
+        },
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil login",
+        userData: {
+          userId: tryLogin.id,
+          email: tryLogin.email,
+          role: tryLogin.role,
+          token: token,
+        },
+      });
     } catch (error) {
-       return res.status(500).json({
-          success: false,
-          message: "Terjadi kesalahan pada server",
-       })
+      console.log(error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
     }
   };
 }
