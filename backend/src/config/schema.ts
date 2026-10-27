@@ -13,12 +13,10 @@ export const employmentStatusEnum = pgEnum("employment_status", [
   "fired",
 ]);
 
+export const gender_status = pgEnum("gender", ["L", "P"])
+
 export const usersTable = pgTable("users", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  employe_id: integer()
-    .notNull()
-    .unique()
-    .references(() => employes.id),
   email: varchar({ length: 255 }).notNull().unique(),
   password: varchar({ length: 100 }).notNull(),
   role: userRole("userRole").notNull().default("Karyawan"),
@@ -45,16 +43,24 @@ export const cities = pgTable("cities", {
 });
 
 export const employes = pgTable("employes", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  employeeCode: varchar("employee_code", { length: 30 }).notNull().unique(),
+  employeeId: varchar("employee_code", { length: 30 }).notNull().primaryKey(),
+  userId: integer()
+    .notNull()
+    .unique()
+    .references(() => usersTable.id),
   firstName: varchar("first_name", { length: 255 }).notNull(),
   lastName: varchar("last_name", { length: 255 }),
+  gender : gender_status("gender").notNull(),
   noTelp: varchar("no_telp", { length: 20 }),
   cities_id: integer()
     .notNull()
     .references(() => cities.id),
+  noRek : varchar({length : 100}),
   hire_date: date("hire_date").notNull(),
-  employment_status: employmentStatusEnum("employment_status").notNull().default("active"),
+  resign_date: date("hire_date"),
+  employment_status: employmentStatusEnum("employment_status")
+    .notNull()
+    .default("active"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()
