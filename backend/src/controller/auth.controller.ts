@@ -8,9 +8,9 @@ import {
   department,
 } from "../config/schema";
 import { employe } from "../validation/employe.validation";
-import { registerSchema } from "../validation/auth.validation";
+import { loginSchema, registerSchema } from "../validation/auth.validation";
 import bcrypt from "bcryptjs";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { ZodError } from "zod";
 
 // Generate employee code yang unik terhadap DB
@@ -53,21 +53,17 @@ export class Authentication {
       }
 
       // 4. Cek foreign key SEBELUM membuat user
-      const [cityExists, positionExists, departmentExists] =
-        await Promise.all([
-          db
-            .select()
-            .from(cities)
-            .where(eq(cities.id, employeeData.cities_id)),
-          db
-            .select()
-            .from(position)
-            .where(eq(position.id_position, employeeData.idPosition)),
-          db
-            .select()
-            .from(department)
-            .where(eq(department.id_department, employeeData.idDepartment)),
-        ]);
+      const [cityExists, positionExists, departmentExists] = await Promise.all([
+        db.select().from(cities).where(eq(cities.id, employeeData.cities_id)),
+        db
+          .select()
+          .from(position)
+          .where(eq(position.id_position, employeeData.idPosition)),
+        db
+          .select()
+          .from(department)
+          .where(eq(department.id_department, employeeData.idDepartment)),
+      ]);
 
       if (
         cityExists.length === 0 ||
@@ -143,9 +139,43 @@ export class Authentication {
     }
   };
 
-  login = async (req:Request, res:Response) => {
-    
-  }
+  login = async (req: Request, res: Response) => {
+    try {
+      const loginValidation = loginSchema.parse(req.body);
+      const { email, password } = loginValidation;
+
+      const [tryLogin] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.email, email))
+        .limit(1);
+
+      if (!tryLogin) {
+        return res.status(404).json({
+          success: false,
+          message: "password atau email salah",
+        });
+      }
+
+      const rehashedPassword = bcrypt.compare(password, tryLogin.password);
+      if (!rehashedPassword) {
+        return res.status(404).json({
+          success: false,
+          message: "password atau email salah",
+        });
+      }
+
+       return res.status(200).json({
+          success: true,
+          message: "Berhasil login",
+       })
+    } catch (error) {
+       return res.status(500).json({
+          success: false,
+          message: "Terjadi kesalahan pada server",
+       })
+    }
+  };
 }
 
 export default new Authentication();
