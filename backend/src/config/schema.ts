@@ -59,7 +59,7 @@ export const employes = pgTable("employes", {
   noRek: varchar({ length: 100 }).notNull(),
   nip : varchar({length : 100}).notNull(),
   hire_date: date("hire_date").notNull(),
-  resign_date: date("hire_date"),
+  resign_date: date("resign_date"),
   idPosition: integer("id_position")
     .notNull()
     .references(() => position.id_position),
