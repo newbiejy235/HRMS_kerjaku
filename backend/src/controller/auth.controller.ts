@@ -157,7 +157,7 @@ export class Authentication {
         });
       }
 
-      const rehashedPassword = bcrypt.compare(password, tryLogin.password);
+      const rehashedPassword = await bcrypt.compare(password, tryLogin.password);
       if (!rehashedPassword) {
         return res.status(404).json({
           success: false,
