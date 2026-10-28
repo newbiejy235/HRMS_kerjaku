@@ -10,9 +10,11 @@ import {
 import { ZodError, z } from "zod";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { employes } from "../../config/schema";
+import { bot } from "../../config/telegramBot";
 
 export class HRfeatures {
-// Generate 6-digit numeric token
+  // Generate 6-digit numeric token
   generateToken(): string {
     return String(Math.floor(100000 + Math.random() * 900000));
   }
@@ -37,10 +39,13 @@ export class HRfeatures {
       }
 
       // Buat request baru dengan status pending
-      const [makeRequest] = await db.insert(passwordResetRequests).values({
-        userId: userId,
-        status: "pending",
-      }).returning();
+      const [makeRequest] = await db
+        .insert(passwordResetRequests)
+        .values({
+          userId: userId,
+          status: "pending",
+        })
+        .returning();
 
       if (!makeRequest) {
         return res.status(400).json({
@@ -52,7 +57,8 @@ export class HRfeatures {
       // Response generic - tidak mengungkap status request sebelum HR review
       return res.status(200).json({
         success: true,
-        message: "Permintaan reset password telah dibuat dengan status pending. Menunggu review HR.",
+        message:
+          "Permintaan reset password telah dibuat dengan status pending. Menunggu review HR.",
       });
     } catch (error: any) {
       if (error instanceof ZodError) {
@@ -112,32 +118,62 @@ export class HRfeatures {
 
       // Jika HR menyetujui, generate token dan simpan ke database
       if (status === "approved") {
-        const token = this.generateToken();
-        const tokenHash = await bcrypt.hash(token, 10);
-        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiration
+        // 1. Cari akun Telegram karyawan
+        const [employee] = await db
+          .select({
+            telegramChatId: employes.telegramChatId,
+          })
+          .from(employes)
+          .where(eq(employes.userId, existingRequest[0].userId))
+          .limit(1);
 
-        // Simpan token hash ke database beserta expiresAt
+        // 2. Pastikan karyawan sudah menghubungkan Telegram
+        if (!employee?.telegramChatId) {
+          return res.status(400).json({
+            success: false,
+            message: "Karyawan belum menghubungkan akun Telegram",
+          });
+        }
+
+        // 3. Buat OTP 6 digit
+        const token = String(crypto.randomInt(100000, 1000000));
+
+        // 4. Simpan hash OTP, bukan OTP asli
+        const tokenHash = await bcrypt.hash(token, 10);
+
+        // 5. Tentukan masa berlaku OTP: 10 menit
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // 6. Simpan OTP ke database
         await db
           .update(passwordResetRequests)
           .set({
             status: "approved",
             token: tokenHash,
             expiresAt,
-            reviewedBy: reviewedBy,
+            usedAt: null,
+            reviewedBy,
             reviewedAt: new Date(),
           })
           .where(eq(passwordResetRequests.id, requestId));
 
+        // 7. Kirim OTP ke Telegram karyawan
+        await bot.sendMessage(
+          employee.telegramChatId,
+          `Permintaan reset password Kerjaku telah disetujui oleh HR.\n\nKode OTP: ${token}\n\nKode berlaku selama 10 menit. Jangan bagikan kode ini kepada siapa pun.`,
+        );
+
         return res.status(200).json({
           success: true,
-          message: "Request disetujui. Token reset telah dibuat",
+          message: "Request disetujui dan OTP dikirim ke Telegram karyawan",
         });
       }
 
       // Jika HR menolak
       return res.status(200).json({
         success: true,
-        message: "Request ditolak. Karyawan akan diberitahu permintaan ditolak.",
+        message:
+          "Request ditolak. Karyawan akan diberitahu permintaan ditolak.",
       });
     } catch (error: any) {
       if (error instanceof ZodError) {

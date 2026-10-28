@@ -53,6 +53,7 @@ export const employes = pgTable("employes", {
   lastName: varchar("last_name", { length: 255 }),
   gender: gender_status("gender").notNull(),
   noTelp: varchar("no_telp", { length: 20 }),
+  telegramChatId: varchar("telegram_chat_id", { length: 100 }),
   cities_id: integer()
     .notNull()
     .references(() => cities.id),
