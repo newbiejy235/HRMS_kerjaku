@@ -110,6 +110,12 @@ export const passwordResetRequests = pgTable(
     reviewedBy: integer("reviewed_by")
       .references(() => usersTable.id),
 
+    token: varchar("token", { length: 255 }),
+
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+
+    usedAt: timestamp("used_at", { withTimezone: true }),
+
     createdAt: timestamp("created_at", {
       withTimezone: true,
     })

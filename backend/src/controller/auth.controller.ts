@@ -6,16 +6,17 @@ import {
   cities,
   position,
   department,
+  passwordResetRequests,
 } from "../config/schema";
 import { employe } from "../validation/employe.validation";
 import { loginSchema, registerSchema } from "../validation/auth.validation";
+import { forgotPasswordSchema, resetPasswordSchema, employeeResetPasswordSchema } from "../validation/verification.validation";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { ZodError } from "zod";
 import dotenv from "dotenv";
-
-dotenv.config();
 
 // Generate employee code yang unik terhadap DB
 async function generateEmployeeCode(): Promise<string> {
@@ -30,6 +31,11 @@ async function generateEmployeeCode(): Promise<string> {
     if (exists.length === 0) return code;
   }
   throw new Error("Gagal generate employee code unik");
+}
+
+// Generate secure random token
+function generateToken(): string {
+  return crypto.randomBytes(32).toString("hex");
 }
 
 export class Authentication {
@@ -207,36 +213,142 @@ export class Authentication {
 
   forgetPassword = async (req: Request, res: Response) => {
     try {
-      const acountValidation = loginSchema.parse(req.body);
-      const { email, password } = acountValidation;
+      const { email } = forgotPasswordSchema.parse(req.body);
 
-      const changePassword = await db
-        .update(usersTable)
-        .set({
-          password: password,
-        })
+      // Cari user berdasarkan email (tidak mengungkap apakah email terdaftar)
+      const existingUser = await db
+        .select({ id: usersTable.id, email: usersTable.email })
+        .from(usersTable)
         .where(eq(usersTable.email, email))
-        .returning({
-          id: usersTable.id,
-        });
+        .limit(1);
 
-      if (changePassword.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: "Gagal!! Email tidak ditemukan",
+      if (!existingUser.length) {
+        // Return success message generik untuk menghindari user enumeration
+        return res.status(200).json({
+          success: true,
+          message: "Jika email terdaftar, permintaan reset password telah dikirim",
         });
       }
 
-      return res.status(201).json({
-        success: true,
-        message: "berhasil mengganti password",
-      });
-    } catch (error) {
-      console.log(error);
+      // // Generate token and hash
+      // const token = generateToken();
+      // const tokenHash = await bcrypt.hash(token, 10);
+      // const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiration
 
+      // Create pending reset request with token hash
+      await db.insert(passwordResetRequests).values({
+        userId: existingUser[0].id,
+        status: "pending",
+      });
+
+      // Response generic - tidak mengirim token atau mengungkap status
+      return res.status(200).json({
+        success: true,
+        message: "Jika email terdaftar, permintaan reset password telah dikirim",
+      });
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: error.issues.map((issue) => ({
+            field: issue.path.join("."),
+            message: issue.message,
+          })),
+        });
+      }
+
+      console.error(error);
       return res.status(500).json({
         success: false,
-        message: "internal server error",
+        message: "Terjadi kesalahan saat memproses permintaan",
+      });
+    }
+  };
+
+  // Reset password using token
+  resetPasswordWithToken = async (req: Request, res: Response) => {
+    try {
+      const { token, newPassword } = resetPasswordSchema.parse(req.body);
+
+      // Cari request berdasarkan token hash menggunakan bcrypt compare
+      // Kita select semua request untuk user yang mungkin cocok, lalu compare hash di aplikasi
+      const allRequests = await db
+        .select()
+        .from(passwordResetRequests)
+        .limit(100);
+
+      let foundRequest = null;
+      for (const req of allRequests) {
+        if (req.token && await bcrypt.compare(token, req.token)) {
+          foundRequest = req;
+          break;
+        }
+      }
+
+      if (!foundRequest) {
+        return res.status(400).json({
+          success: false,
+          message: "Token invalid atau tidak ditemukan",
+        });
+      }
+
+      // Cek jika token sudah kedaluwarsa
+      if (foundRequest.expiresAt && new Date(foundRequest.expiresAt) < new Date()) {
+        return res.status(400).json({
+          success: false,
+          message: "Token telah kadaluwarsa",
+        });
+      }
+
+      // Cek jika token sudah digunakan
+      if (foundRequest.usedAt) {
+        return res.status(400).json({
+          success: false,
+          message: "Token telah digunakan sebelumnya",
+        });
+      }
+
+      // Update password user
+      const [updatedUser] = await db
+        .update(usersTable)
+        .set({ password: await bcrypt.hash(newPassword, 10) })
+        .where(eq(usersTable.id, foundRequest.userId))
+        .returning({ id: usersTable.id });
+
+      if (!updatedUser) {
+        return res.status(500).json({
+          success: false,
+          message: "Gagal memperbarui password",
+        });
+      }
+
+      // Tandai token sebagai digunakan
+      await db
+        .update(passwordResetRequests)
+        .set({ usedAt: new Date() })
+        .where(eq(passwordResetRequests.id, foundRequest.id));
+
+      return res.status(200).json({
+        success: true,
+        message: "Password berhasil diubah",
+      });
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: error.issues.map((issue) => ({
+            field: issue.path.join("."),
+            message: issue.message,
+          })),
+        });
+      }
+
+      console.error(error);
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan saat mereset password",
       });
     }
   };
