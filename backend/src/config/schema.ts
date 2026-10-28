@@ -87,3 +87,43 @@ export const department = pgTable("department", {
   department_name: varchar({ length: 100 }).notNull(),
   description: text(),
 });
+
+
+export const resetRequestStatus = pgEnum(
+  "reset_request_status",
+  ["pending", "approved", "rejected"]
+);
+
+export const passwordResetRequests = pgTable(
+  "password_reset_requests",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+
+    userId: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id),
+
+    status: resetRequestStatus()
+      .notNull()
+      .default("pending"),
+
+    reviewedBy: integer("reviewed_by")
+      .references(() => usersTable.id),
+
+    token: varchar("token", { length: 255 }),
+
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+
+    usedAt: timestamp("used_at", { withTimezone: true }),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+
+    reviewedAt: timestamp("reviewed_at", {
+      withTimezone: true,
+    }),
+  }
+);
