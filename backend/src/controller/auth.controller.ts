@@ -204,6 +204,42 @@ export class Authentication {
       });
     }
   };
+
+  forgetPassword = async (req: Request, res: Response) => {
+    try {
+      const acountValidation = loginSchema.parse(req.body);
+      const { email, password } = acountValidation;
+
+      const changePassword = await db
+        .update(usersTable)
+        .set({
+          password: password,
+        })
+        .where(eq(usersTable.email, email))
+        .returning({
+          id: usersTable.id,
+        });
+
+      if (changePassword.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Gagal!! Email tidak ditemukan",
+        });
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: "berhasil mengganti password",
+      });
+    } catch (error) {
+      console.log(error);
+
+      return res.status(500).json({
+        success: false,
+        message: "internal server error",
+      });
+    }
+  };
 }
 
 export default new Authentication();
