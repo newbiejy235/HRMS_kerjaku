@@ -7,6 +7,7 @@ import {
   shiftSchedule,
   usersTable,
   attendanceQrCode,
+  employeeAttendance,
 } from "../../config/schema";
 import { AuthRequest } from "../../middleware/users.middleware";
 import QRCode from "qrcode";
@@ -221,9 +222,64 @@ export class EmployeeFeatures {
         });
       }
 
+      const [user] = await db
+        .select({
+          employeeId: employes.employeeId,
+          firstName: employes.firstName,
+          lastName: employes.lastName,
+          gender: employes.gender,
+          noTelp: employes.noTelp,
+          hireDate: employes.hire_date,
+          employmentStatus: employes.employment_status,
+          email: usersTable.email,
+          role: usersTable.role,
+        })
+        .from(employes)
+        .innerJoin(usersTable, eq(employes.userId, usersTable.id))
+        .where(eq(usersTable.id, userId));
+
+      const currentTime = new Date();
+
+      const shiftDate = currentTime.toISOString().split("T")[0];
+
+      const employeeIn = [
+        currentTime.getHours(),
+        currentTime.getMinutes(),
+        currentTime.getSeconds(),
+      ]
+        .map((time) => String(time).padStart(2, "0"))
+        .join(":");
+
+      const userAttendance = await db.insert(employeeAttendance).values({
+        shiftDate,
+        employeeIn,
+        id_employee: user.employeeId,
+      });
+
+      const isPresent = await db
+        .select()
+        .from(employeeAttendance)
+        .where(
+          and(
+            eq(employeeAttendance.id_employee, user.employeeId),
+            eq(employeeAttendance.shiftDate, shiftDate),
+          ),
+        );
+
+      if (isPresent.length > 0) {
+        await db.update(employeeAttendance).set({
+          employeeOut: shiftDate,
+        });
+
+        return res.status(200).json({
+          success: true,
+          message: "berhasil mellakukan absensi pulang",
+        });
+      }
+
       return res.status(200).json({
         success: true,
-        message: "QR Code valid",
+        message: "berhasil melakukan absensi kehadiran",
       });
     } catch (error) {
       console.error("Scan Attendance Error:", error);
