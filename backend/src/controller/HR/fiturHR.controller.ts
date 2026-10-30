@@ -8,7 +8,7 @@ import {
   hrReviewSchema,
 } from "../../validation/verification.validation";
 import { manageEmploye } from "../../validation/manageEmployee.validation";
-import { shiftSettings } from "../../config/schema";
+import { attendanceSettings } from "../../config/schema";
 import { shiftSettingsSchema } from "../../validation/shiftSettings.validation";
 import { ZodError, number, z } from "zod";
 import bcrypt from "bcryptjs";
@@ -349,7 +349,7 @@ export class HRfeatures {
       if (user.role !== "HR") {
         return res.status(403).json({
           success: false,
-          message: "Anda tidak diizinkan mengakses data karyawan",
+          message: "Anda tidak diizinkan mengakses data shift",
         });
       }
 
@@ -357,7 +357,7 @@ export class HRfeatures {
       if (!targetShift) {
         return res
           .status(400)
-          .json({ success: false, message: "ID Karyawan tidak valid" });
+          .json({ success: false, message: "ID shift_settings tidak valid" });
       }
 
       const updateData = shiftSettingsSchema
@@ -387,15 +387,15 @@ export class HRfeatures {
       }
 
       const [updated] = await db
-        .update(shiftSettings)
+        .update(attendanceSettings)
         .set(validatedData)
-        .where(eq(shiftSettings.id_settings, targetShift))
+        .where(eq(attendanceSettings.id_settings, targetShift))
         .returning();
 
       if (!updated) {
         return res.status(404).json({
           success: false,
-          message: "Karyawan tidak ditemukan",
+          message: "shift tidak ditemukan",
         });
       }
 
@@ -404,7 +404,13 @@ export class HRfeatures {
         message: "Berhasil update data karyawan",
         data: updated,
       });
-    } catch (error) {}
+    } catch (error) {
+      console.log(error);
+      return res.status(500).json({
+        success: false,
+        message: "internal server error",
+      });
+    }
   };
 }
 

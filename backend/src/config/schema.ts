@@ -16,7 +16,11 @@ export const employmentStatusEnum = pgEnum("employment_status", [
 ]);
 
 export const gender_status = pgEnum("gender", ["L", "P"]);
-export const shiftCategory = pgEnum("shiftCategory", ["Morning", "Afternoon", "Evening"])
+export const shiftCategory = pgEnum("shiftCategory", [
+  "Morning",
+  "Afternoon",
+  "Evening",
+]);
 
 export const usersTable = pgTable("users", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -125,7 +129,7 @@ export const passwordResetRequests = pgTable("password_reset_requests", {
   }),
 });
 
-export const employeeShift = pgTable("shift", {
+export const employeeAttendance = pgTable("attendance", {
   shiftId: integer().primaryKey().generatedAlwaysAsIdentity(),
   shiftDate: date().notNull(),
   employeeIn: time(),
@@ -136,9 +140,22 @@ export const employeeShift = pgTable("shift", {
     .references(() => employes.employeeId),
 });
 
-export const shiftSettings = pgTable("shiftSetting", {
-  id_settings : integer().primaryKey().generatedAlwaysAsIdentity(),
-  category : shiftCategory().notNull(),
-  normal_time_in : time(),
-  normal_time_out : time(),
-})
+
+export const attendanceSettings = pgTable("attendance_settings", {
+  id_settings: integer().primaryKey().generatedAlwaysAsIdentity(),
+  category: shiftCategory().notNull(),
+  normal_time_in: time(),
+  normal_time_out: time(),
+});
+
+export const shiftSchedule = pgTable("shift", {
+  shiftId: integer().primaryKey().generatedAlwaysAsIdentity(),
+  shiftDate: date().notNull(),
+  shiftTime: integer()
+    .notNull()
+    .references(() => attendanceSettings.id_settings),
+  employeeLocate: text(),
+  id_employee: varchar()
+    .notNull()
+    .references(() => employes.employeeId),
+});
