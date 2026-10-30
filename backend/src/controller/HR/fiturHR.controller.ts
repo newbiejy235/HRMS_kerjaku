@@ -494,7 +494,8 @@ export class HRfeatures {
       if (duplicateShift) {
         return res.status(409).json({
           success: false,
-          message: "Jadwal shift sudah terdaftar untuk karyawan pada tanggal tersebut",
+          message:
+            "Jadwal shift sudah terdaftar untuk karyawan pada tanggal tersebut",
         });
       }
 
@@ -540,10 +541,7 @@ export class HRfeatures {
       }
 
       const targetShiftId = Number(req.params.shiftId);
-      if (
-        !Number.isInteger(targetShiftId) ||
-        targetShiftId <= 0
-      ) {
+      if (!Number.isInteger(targetShiftId) || targetShiftId <= 0) {
         return res
           .status(400)
           .json({ success: false, message: "ID shift tidak valid" });
@@ -596,6 +594,8 @@ export class HRfeatures {
       const updateData: {
         shiftDate?: string;
         shiftTime?: number;
+        upcomingShiftDate?: string | null;
+        upcomingShiftTime?: number | null; // <-- was string | null
         employeeLocate?: string | null;
       } = {};
 
@@ -609,6 +609,12 @@ export class HRfeatures {
 
       if (validatedData.employeeLocate !== undefined) {
         updateData.employeeLocate = validatedData.employeeLocate;
+      }
+      if (validatedData.upcomingShiftDate !== undefined) {
+        updateData.upcomingShiftDate = validatedData.upcomingShiftDate;
+      }
+      if (validatedData.upcomingShiftTime !== undefined) {
+        updateData.upcomingShiftTime = validatedData.upcomingShiftTime;
       }
 
       // Validasi FK jika shiftTime diperbarui

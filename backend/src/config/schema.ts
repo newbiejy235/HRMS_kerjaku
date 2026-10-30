@@ -140,7 +140,6 @@ export const employeeAttendance = pgTable("attendance", {
     .references(() => employes.employeeId),
 });
 
-
 export const attendanceSettings = pgTable("attendance_settings", {
   id_settings: integer().primaryKey().generatedAlwaysAsIdentity(),
   category: shiftCategory().notNull(),
@@ -153,6 +152,9 @@ export const shiftSchedule = pgTable("shift", {
   shiftDate: date().notNull(),
   shiftTime: integer()
     .notNull()
+    .references(() => attendanceSettings.id_settings),
+  upcomingShiftDate: date(),
+  upcomingShiftTime: integer()
     .references(() => attendanceSettings.id_settings),
   employeeLocate: text(),
   id_employee: varchar()

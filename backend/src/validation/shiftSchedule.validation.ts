@@ -36,6 +36,10 @@ export const updateShiftScheduleSchema = z
   .object({
     shiftDate: shiftDateField.optional(),
     shiftTime: shiftTimeField.optional(),
+
+    upcomingShiftDate: shiftDateField.optional(),
+    upcomingShiftTime: shiftTimeField.optional(),
+
     employeeLocate: employeeLocateField.optional(),
   })
   .strict();
