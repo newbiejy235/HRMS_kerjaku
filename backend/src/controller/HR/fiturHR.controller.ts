@@ -1,6 +1,10 @@
 import { db } from "../../config/db";
-import { eq } from "drizzle-orm";
-import { passwordResetRequests, usersTable } from "../../config/schema";
+import { eq, and } from "drizzle-orm";
+import {
+  passwordResetRequests,
+  usersTable,
+  shiftSchedule,
+} from "../../config/schema";
 import { Request, Response, NextFunction } from "express";
 import {
   createVerificationSchema,
@@ -409,6 +413,292 @@ export class HRfeatures {
       return res.status(500).json({
         success: false,
         message: "internal server error",
+      });
+    }
+  };
+  createEmployeeShift = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Sesi tidak valid" });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan mengelola jadwal shift",
+        });
+      }
+
+      // shiftId dibuat otomatis oleh database, tidak diterima dari client
+      const createShiftSchema = z
+        .object({
+          shiftDate: z.iso.date("Format shift date harus YYYY-MM-DD"),
+          shiftTime: z
+            .number()
+            .int("Shift time harus berupa bilangan bulat")
+            .positive("Shift time harus lebih dari 0"),
+          employeeLocate: z
+            .string()
+            .trim()
+            .max(1000, "Lokasi kerja maksimal 1000 karakter")
+            .optional()
+            .nullable(),
+          id_employee: z
+            .string()
+            .trim()
+            .min(1, "Employee code wajib diisi")
+            .max(30, "Employee code maksimal 30 karakter"),
+        })
+        .strict();
+
+      const validationResult = createShiftSchema.safeParse(req.body);
+
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: validationResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const { shiftDate, shiftTime, employeeLocate, id_employee } =
+        validationResult.data;
+
+      // Pastikan karyawan terdaftar
+      const [employee] = await db
+        .select({ employeeId: employes.employeeId })
+        .from(employes)
+        .where(eq(employes.employeeId, id_employee))
+        .limit(1);
+
+      if (!employee) {
+        return res.status(404).json({
+          success: false,
+          message: "Karyawan tidak ditemukan",
+        });
+      }
+
+      // Pastikan pengaturan shift valid (shiftTime adalah ID referensi, bukan jam)
+      const [shiftSetting] = await db
+        .select({ idSettings: attendanceSettings.id_settings })
+        .from(attendanceSettings)
+        .where(eq(attendanceSettings.id_settings, shiftTime))
+        .limit(1);
+
+      if (!shiftSetting) {
+        return res.status(404).json({
+          success: false,
+          message: "Pengaturan shift tidak ditemukan",
+        });
+      }
+
+      // Cegah jadwal duplikat: karyawan, tanggal, dan shift yang sama
+      const [duplicateShift] = await db
+        .select({ shiftId: shiftSchedule.shiftId })
+        .from(shiftSchedule)
+        .where(
+          and(
+            eq(shiftSchedule.id_employee, id_employee),
+            eq(shiftSchedule.shiftDate, shiftDate),
+            eq(shiftSchedule.shiftTime, shiftTime),
+          ),
+        )
+        .limit(1);
+
+      if (duplicateShift) {
+        return res.status(409).json({
+          success: false,
+          message: "Jadwal shift sudah terdaftar untuk karyawan pada tanggal tersebut",
+        });
+      }
+
+      const [created] = await db
+        .insert(shiftSchedule)
+        .values({
+          shiftDate,
+          shiftTime,
+          employeeLocate: employeeLocate ?? null,
+          id_employee,
+        })
+        .returning();
+
+      return res.status(201).json({
+        success: true,
+        message: "Berhasil membuat jadwal shift karyawan",
+        data: created,
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+        success: false,
+        message: "Gagal membuat jadwal shift karyawan",
+      });
+    }
+  };
+
+  updateEmployeeShift = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Sesi tidak valid" });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan mengelola jadwal shift",
+        });
+      }
+
+      const targetShiftId = Number(req.params.shiftId);
+      if (
+        !Number.isInteger(targetShiftId) ||
+        targetShiftId <= 0
+      ) {
+        return res
+          .status(400)
+          .json({ success: false, message: "ID shift tidak valid" });
+      }
+
+      // Whitelist: HR hanya boleh mengubah shiftTime dan employeeLocate
+      const updateShiftSchema = z
+        .object({
+          shiftTime: z
+            .number()
+            .int("Shift time harus berupa bilangan bulat")
+            .positive("Shift time harus lebih dari 0")
+            .optional(),
+          employeeLocate: z
+            .string()
+            .trim()
+            .max(1000, "Lokasi kerja maksimal 1000 karakter")
+            .optional()
+            .nullable(),
+        })
+        .strict();
+
+      const validationResult = updateShiftSchema.safeParse(req.body);
+
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: validationResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const validatedData = validationResult.data;
+
+      if (
+        validatedData.shiftTime === undefined &&
+        validatedData.employeeLocate === undefined
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Tidak ada data yang ingin diupdate",
+        });
+      }
+
+      const [existingShift] = await db
+        .select({
+          shiftId: shiftSchedule.shiftId,
+          shiftDate: shiftSchedule.shiftDate,
+          shiftTime: shiftSchedule.shiftTime,
+          employeeLocate: shiftSchedule.employeeLocate,
+          id_employee: shiftSchedule.id_employee,
+        })
+        .from(shiftSchedule)
+        .where(eq(shiftSchedule.shiftId, targetShiftId))
+        .limit(1);
+
+      if (!existingShift) {
+        return res.status(404).json({
+          success: false,
+          message: "Jadwal shift tidak ditemukan",
+        });
+      }
+
+      // Bangun object update secara eksplisit (tidak spread req.body)
+      const updateData: {
+        shiftTime?: number;
+        employeeLocate?: string | null;
+      } = {};
+
+      if (validatedData.shiftTime !== undefined) {
+        updateData.shiftTime = validatedData.shiftTime;
+      }
+
+      if (validatedData.employeeLocate !== undefined) {
+        updateData.employeeLocate = validatedData.employeeLocate;
+      }
+
+      // Validasi FK jika shiftTime diperbarui
+      if (updateData.shiftTime !== undefined) {
+        const [shiftSetting] = await db
+          .select({ idSettings: attendanceSettings.id_settings })
+          .from(attendanceSettings)
+          .where(eq(attendanceSettings.id_settings, updateData.shiftTime))
+          .limit(1);
+
+        if (!shiftSetting) {
+          return res.status(404).json({
+            success: false,
+            message: "Pengaturan shift tidak ditemukan",
+          });
+        }
+
+        // Cegah duplikat jika shift baru sama dengan jadwal lain pada tanggal yang sama
+        const [duplicateShift] = await db
+          .select({ shiftId: shiftSchedule.shiftId })
+          .from(shiftSchedule)
+          .where(
+            and(
+              eq(shiftSchedule.id_employee, existingShift.id_employee),
+              eq(shiftSchedule.shiftDate, existingShift.shiftDate),
+              eq(shiftSchedule.shiftTime, updateData.shiftTime),
+            ),
+          )
+          .limit(1);
+
+        if (duplicateShift && duplicateShift.shiftId !== targetShiftId) {
+          return res.status(409).json({
+            success: false,
+            message:
+              "Jadwal shift sudah terdaftar untuk karyawan pada tanggal tersebut",
+          });
+        }
+      }
+
+      const [updated] = await db
+        .update(shiftSchedule)
+        .set(updateData)
+        .where(eq(shiftSchedule.shiftId, targetShiftId))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({
+          success: false,
+          message: "Jadwal shift tidak ditemukan",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil update jadwal shift karyawan",
+        data: updated,
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+        success: false,
+        message: "Gagal update jadwal shift karyawan",
       });
     }
   };
