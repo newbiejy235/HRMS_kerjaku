@@ -8,7 +8,9 @@ import {
   hrReviewSchema,
 } from "../../validation/verification.validation";
 import { manageEmploye } from "../../validation/manageEmployee.validation";
-import { ZodError, z } from "zod";
+import { shiftSettings } from "../../config/schema";
+import { shiftSettingsSchema } from "../../validation/shiftSettings.validation";
+import { ZodError, number, z } from "zod";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { employes } from "../../config/schema";
@@ -246,7 +248,7 @@ export class HRfeatures {
       });
     }
   };
-  
+
   manageEmployee = async (req: AuthRequest, res: Response) => {
     try {
       const user = req.user;
@@ -330,6 +332,79 @@ export class HRfeatures {
         .status(500)
         .json({ success: false, message: "Terjadi kesalahan pada server" });
     }
+  };
+
+  employeeShiftSettings = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      // Validasi hak akses berdasarkan pengguna yang login
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan mengakses data karyawan",
+        });
+      }
+
+      const targetShift = Number(req.params.id_settings);
+      if (!targetShift) {
+        return res
+          .status(400)
+          .json({ success: false, message: "ID Karyawan tidak valid" });
+      }
+
+      const updateData = shiftSettingsSchema
+        .pick({
+          normal_time_in: true,
+          normal_time_out: true,
+        })
+        .partial()
+        .strict();
+      const validationResult = updateData.safeParse(req.body);
+
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: validationResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const validatedData = validationResult.data;
+
+      if (Object.keys(validatedData).length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Tidak ada data yang ingin diupdate",
+        });
+      }
+
+      const [updated] = await db
+        .update(shiftSettings)
+        .set(validatedData)
+        .where(eq(shiftSettings.id_settings, targetShift))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({
+          success: false,
+          message: "Karyawan tidak ditemukan",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil update data karyawan",
+        data: updated,
+      });
+    } catch (error) {}
   };
 }
 

@@ -6,6 +6,7 @@ import {
   timestamp,
   varchar,
   text,
+  time,
 } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("userRole", ["Karyawan", "Finance", "HR"]);
@@ -15,6 +16,7 @@ export const employmentStatusEnum = pgEnum("employment_status", [
 ]);
 
 export const gender_status = pgEnum("gender", ["L", "P"]);
+export const shiftCategory = pgEnum("shiftCategory", ["Morning", "Afternoon", "Evening"])
 
 export const usersTable = pgTable("users", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -58,7 +60,7 @@ export const employes = pgTable("employes", {
     .notNull()
     .references(() => cities.id),
   noRek: varchar({ length: 100 }).notNull(),
-  nip : varchar({length : 100}).notNull(),
+  nip: varchar({ length: 100 }).notNull(),
   hire_date: date("hire_date").notNull(),
   resign_date: date("resign_date"),
   idPosition: integer("id_position")
@@ -89,42 +91,54 @@ export const department = pgTable("department", {
   description: text(),
 });
 
+export const resetRequestStatus = pgEnum("reset_request_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
 
-export const resetRequestStatus = pgEnum(
-  "reset_request_status",
-  ["pending", "approved", "rejected"]
-);
+export const passwordResetRequests = pgTable("password_reset_requests", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
 
-export const passwordResetRequests = pgTable(
-  "password_reset_requests",
-  {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => usersTable.id),
 
-    userId: integer("user_id")
-      .notNull()
-      .references(() => usersTable.id),
+  status: resetRequestStatus().notNull().default("pending"),
 
-    status: resetRequestStatus()
-      .notNull()
-      .default("pending"),
+  reviewedBy: integer("reviewed_by").references(() => usersTable.id),
 
-    reviewedBy: integer("reviewed_by")
-      .references(() => usersTable.id),
+  token: varchar("token", { length: 255 }),
 
-    token: varchar("token", { length: 255 }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
 
-    expiresAt: timestamp("expires_at", { withTimezone: true }),
+  usedAt: timestamp("used_at", { withTimezone: true }),
 
-    usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+  })
+    .notNull()
+    .defaultNow(),
 
-    createdAt: timestamp("created_at", {
-      withTimezone: true,
-    })
-      .notNull()
-      .defaultNow(),
+  reviewedAt: timestamp("reviewed_at", {
+    withTimezone: true,
+  }),
+});
 
-    reviewedAt: timestamp("reviewed_at", {
-      withTimezone: true,
-    }),
-  }
-);
+export const employeeShift = pgTable("shift", {
+  shiftId: integer().primaryKey().generatedAlwaysAsIdentity(),
+  shiftDate: date().notNull(),
+  employeeIn: time(),
+  employeeOut: time(),
+  employeeLocate: text(),
+  id_employee: varchar()
+    .notNull()
+    .references(() => employes.employeeId),
+});
+
+export const shiftSettings = pgTable("shiftSetting", {
+  id_settings : integer().primaryKey().generatedAlwaysAsIdentity(),
+  category : shiftCategory().notNull(),
+  normal_time_in : time(),
+  normal_time_out : time(),
+})
