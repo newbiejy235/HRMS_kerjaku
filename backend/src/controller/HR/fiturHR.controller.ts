@@ -14,6 +14,10 @@ import {
 import { manageEmploye } from "../../validation/manageEmployee.validation";
 import { attendanceSettings } from "../../config/schema";
 import { shiftSettingsSchema } from "../../validation/shiftSettings.validation";
+import {
+  createShiftScheduleSchema,
+  updateShiftScheduleSchema,
+} from "../../validation/shiftSchedule.validation";
 import { ZodError, number, z } from "zod";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
@@ -433,29 +437,7 @@ export class HRfeatures {
         });
       }
 
-      // shiftId dibuat otomatis oleh database, tidak diterima dari client
-      const createShiftSchema = z
-        .object({
-          shiftDate: z.iso.date("Format shift date harus YYYY-MM-DD"),
-          shiftTime: z
-            .number()
-            .int("Shift time harus berupa bilangan bulat")
-            .positive("Shift time harus lebih dari 0"),
-          employeeLocate: z
-            .string()
-            .trim()
-            .max(1000, "Lokasi kerja maksimal 1000 karakter")
-            .optional()
-            .nullable(),
-          id_employee: z
-            .string()
-            .trim()
-            .min(1, "Employee code wajib diisi")
-            .max(30, "Employee code maksimal 30 karakter"),
-        })
-        .strict();
-
-      const validationResult = createShiftSchema.safeParse(req.body);
+      const validationResult = createShiftScheduleSchema.safeParse(req.body);
 
       if (!validationResult.success) {
         return res.status(400).json({
@@ -567,24 +549,8 @@ export class HRfeatures {
           .json({ success: false, message: "ID shift tidak valid" });
       }
 
-      // Whitelist: HR hanya boleh mengubah shiftTime dan employeeLocate
-      const updateShiftSchema = z
-        .object({
-          shiftTime: z
-            .number()
-            .int("Shift time harus berupa bilangan bulat")
-            .positive("Shift time harus lebih dari 0")
-            .optional(),
-          employeeLocate: z
-            .string()
-            .trim()
-            .max(1000, "Lokasi kerja maksimal 1000 karakter")
-            .optional()
-            .nullable(),
-        })
-        .strict();
-
-      const validationResult = updateShiftSchema.safeParse(req.body);
+      // Whitelist: HR hanya boleh mengubah shiftDate, shiftTime, dan employeeLocate
+      const validationResult = updateShiftScheduleSchema.safeParse(req.body);
 
       if (!validationResult.success) {
         return res.status(400).json({
@@ -597,6 +563,7 @@ export class HRfeatures {
       const validatedData = validationResult.data;
 
       if (
+        validatedData.shiftDate === undefined &&
         validatedData.shiftTime === undefined &&
         validatedData.employeeLocate === undefined
       ) {
@@ -627,9 +594,14 @@ export class HRfeatures {
 
       // Bangun object update secara eksplisit (tidak spread req.body)
       const updateData: {
+        shiftDate?: string;
         shiftTime?: number;
         employeeLocate?: string | null;
       } = {};
+
+      if (validatedData.shiftDate !== undefined) {
+        updateData.shiftDate = validatedData.shiftDate;
+      }
 
       if (validatedData.shiftTime !== undefined) {
         updateData.shiftTime = validatedData.shiftTime;
@@ -653,16 +625,25 @@ export class HRfeatures {
             message: "Pengaturan shift tidak ditemukan",
           });
         }
+      }
 
-        // Cegah duplikat jika shift baru sama dengan jadwal lain pada tanggal yang sama
+      // Cegah duplikat jika tanggal atau shift diperbarui:
+      // bandingkan tanggal & shift efektif terhadap jadwal lain milik karyawan yang sama
+      if (
+        updateData.shiftDate !== undefined ||
+        updateData.shiftTime !== undefined
+      ) {
+        const effectiveDate = updateData.shiftDate ?? existingShift.shiftDate;
+        const effectiveTime = updateData.shiftTime ?? existingShift.shiftTime;
+
         const [duplicateShift] = await db
           .select({ shiftId: shiftSchedule.shiftId })
           .from(shiftSchedule)
           .where(
             and(
               eq(shiftSchedule.id_employee, existingShift.id_employee),
-              eq(shiftSchedule.shiftDate, existingShift.shiftDate),
-              eq(shiftSchedule.shiftTime, updateData.shiftTime),
+              eq(shiftSchedule.shiftDate, effectiveDate),
+              eq(shiftSchedule.shiftTime, effectiveTime),
             ),
           )
           .limit(1);
