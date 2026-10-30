@@ -7,5 +7,6 @@ router.patch("/:employeeId", authenticate, HRfeatures.manageEmployee);
 router.patch("/shift-settings/:id_settings", authenticate, HRfeatures.employeeShiftSettings);
 router.post("/shift", authenticate, HRfeatures.createEmployeeShift);
 router.patch("/shift/:shiftId", authenticate, HRfeatures.updateEmployeeShift);
+router.get("/", authenticate, HRfeatures.getAllShiftSchedules);
 
 export default router;

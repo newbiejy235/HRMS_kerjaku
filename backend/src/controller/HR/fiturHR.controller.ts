@@ -683,6 +683,57 @@ export class HRfeatures {
       });
     }
   };
+
+  getAllShiftSchedules = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Sesi tidak valid" });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan melihat jadwal shift karyawan",
+        });
+      }
+
+      const shiftSchedules = await db
+        .select({
+          shiftId: shiftSchedule.shiftId,
+          shiftDate: shiftSchedule.shiftDate,
+          employeeLocate: shiftSchedule.employeeLocate,
+          category: attendanceSettings.category,
+          normal_time_in: attendanceSettings.normal_time_in,
+          normal_time_out: attendanceSettings.normal_time_out,
+          employeeId: employes.employeeId,
+          firstName: employes.firstName,
+          lastName: employes.lastName,
+        })
+        .from(shiftSchedule)
+        .innerJoin(
+          attendanceSettings,
+          eq(shiftSchedule.shiftTime, attendanceSettings.id_settings),
+        )
+        .innerJoin(employes, eq(shiftSchedule.id_employee, employes.employeeId))
+        .orderBy(shiftSchedule.shiftDate);
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil mendapatkan jadwal shift karyawan",
+        data: shiftSchedules,
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+        success: false,
+        message: "Gagal mendapatkan jadwal shift karyawan",
+      });
+    }
+  };
 }
 
 export default new HRfeatures();
