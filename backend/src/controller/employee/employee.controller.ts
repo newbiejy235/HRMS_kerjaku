@@ -18,13 +18,19 @@ export class EmployeeFeatures {
 
       const [user] = await db
         .select({
-          id: usersTable.id,
+          employeeId: employes.employeeId,
+          firstName: employes.firstName,
+          lastName: employes.lastName,
+          gender: employes.gender,
+          noTelp: employes.noTelp,
+          hireDate: employes.hire_date,
+          employmentStatus: employes.employment_status,
           email: usersTable.email,
           role: usersTable.role,
         })
-        .from(usersTable)
-        .where(eq(usersTable.id, userId))
-        .limit(1);
+        .from(employes)
+        .innerJoin(usersTable, eq(employes.userId, usersTable.id))
+        .where(eq(usersTable.id, userId));
 
       if (!user) {
         return res.status(404).json({
@@ -37,9 +43,7 @@ export class EmployeeFeatures {
         success: true,
         message: "Berhasil mendapatkan data",
         data: {
-          userId: user.id,
-          email: user.email,
-          role: user.role,
+          user,
         },
       });
     } catch (error) {
@@ -48,56 +52,6 @@ export class EmployeeFeatures {
       return res.status(500).json({
         success: false,
         message: "Gagal mendapatkan data",
-      });
-    }
-  };
-
-  getAllEmployee = async (req: AuthRequest, res: Response) => {
-    try {
-      const user = req.user;
-
-      if (!user?.userId) {
-        return res.status(401).json({
-          success: false,
-          message: "Sesi tidak valid",
-        });
-      }
-
-      // Validasi hak akses berdasarkan pengguna yang login
-      if (user.role !== "HR") {
-        return res.status(403).json({
-          success: false,
-          message: "Anda tidak diizinkan mengakses data karyawan",
-        });
-      }
-
-      // Ambil seluruh data karyawan beserta akun login
-      const employees = await db
-        .select({
-          employeeId: employes.employeeId,
-          firstName: employes.firstName,
-          lastName: employes.lastName,
-          gender: employes.gender,
-          noTelp: employes.noTelp,
-          hireDate: employes.hire_date,
-          employmentStatus: employes.employment_status,
-          email: usersTable.email,
-          role: usersTable.role,
-        })
-        .from(employes)
-        .innerJoin(usersTable, eq(employes.userId, usersTable.id));
-
-      return res.status(200).json({
-        success: true,
-        message: "Berhasil mendapatkan data karyawan",
-        data: employees,
-      });
-    } catch (error) {
-      console.error(error);
-
-      return res.status(500).json({
-        success: false,
-        message: "Gagal mendapatkan data karyawan",
       });
     }
   };

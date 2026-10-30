@@ -5,6 +5,7 @@ import employeeData from "./routes/profile.routes";
 import cors from "cors";
 import "../src/lib/telegram/telegram.handler";
 import activationBot from "../src/routes/activation.route";
+import manageEmployees from "../src/routes/manageEmployee.routes"
 
 const app = express();
 const PORT = 8000;
@@ -20,6 +21,7 @@ app.use("/auth", auth);
 app.use("/verification", verification);
 app.use("/data", employeeData);
 app.use("/activation", activationBot);
+app.use("/manage", manageEmployees);
 
 app.get("/", (req, res) => {
   res.send("Hello Express + TypeScript!");

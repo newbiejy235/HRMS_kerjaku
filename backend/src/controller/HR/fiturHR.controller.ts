@@ -7,11 +7,13 @@ import {
   reviewVerificationSchema,
   hrReviewSchema,
 } from "../../validation/verification.validation";
+import { manageEmploye } from "../../validation/manageEmployee.validation";
 import { ZodError, z } from "zod";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { employes } from "../../config/schema";
 import { bot } from "../../config/telegramBot";
+import { AuthRequest } from "../../middleware/users.middleware";
 
 export class HRfeatures {
   // Generate 6-digit numeric token
@@ -194,4 +196,141 @@ export class HRfeatures {
       });
     }
   };
+
+  getAllEmployee = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      // Validasi hak akses berdasarkan pengguna yang login
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan mengakses data karyawan",
+        });
+      }
+
+      // Ambil seluruh data karyawan beserta akun login
+      const employees = await db
+        .select({
+          employeeId: employes.employeeId,
+          firstName: employes.firstName,
+          lastName: employes.lastName,
+          gender: employes.gender,
+          noTelp: employes.noTelp,
+          hireDate: employes.hire_date,
+          employmentStatus: employes.employment_status,
+          email: usersTable.email,
+          role: usersTable.role,
+        })
+        .from(employes)
+        .innerJoin(usersTable, eq(employes.userId, usersTable.id));
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil mendapatkan data karyawan",
+        data: employees,
+      });
+    } catch (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Gagal mendapatkan data karyawan",
+      });
+    }
+  };
+  
+  manageEmployee = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Sesi tidak valid" });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan mengakses data karyawan",
+        });
+      }
+
+      const targetEmployeeId = String(req.params.employeeId);
+      if (!targetEmployeeId) {
+        return res
+          .status(400)
+          .json({ success: false, message: "ID Karyawan tidak valid" });
+      }
+
+      // Whitelist field yang boleh diubah HR, semuanya optional
+      const updateSchema = manageEmploye
+        .pick({
+          firstName: true,
+          lastName: true,
+          gender: true,
+          noTelp: true,
+          noRek: true,
+          cities_id: true,
+          idPosition: true,
+          idDepartment: true,
+          // tambah/kurangi sesuai kebutuhan
+        })
+        .partial()
+        .strict(); // tolak field yang tidak dikenal
+
+      const validationResult = updateSchema.safeParse(req.body);
+
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: validationResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const validatedData = validationResult.data;
+
+      if (Object.keys(validatedData).length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Tidak ada data yang ingin diupdate",
+        });
+      }
+
+      const [updated] = await db
+        .update(employes)
+        .set(validatedData)
+        .where(eq(employes.employeeId, targetEmployeeId))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({
+          success: false,
+          message: "Karyawan tidak ditemukan",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil update data karyawan",
+        data: updated,
+      });
+    } catch (error) {
+      console.error(error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Terjadi kesalahan pada server" });
+    }
+  };
 }
+
+export default new HRfeatures();
