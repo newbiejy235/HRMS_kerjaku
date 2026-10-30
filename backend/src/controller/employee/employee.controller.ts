@@ -225,38 +225,36 @@ export class EmployeeFeatures {
       const [user] = await db
         .select({
           employeeId: employes.employeeId,
-          firstName: employes.firstName,
-          lastName: employes.lastName,
-          gender: employes.gender,
-          noTelp: employes.noTelp,
-          hireDate: employes.hire_date,
           employmentStatus: employes.employment_status,
-          email: usersTable.email,
-          role: usersTable.role,
         })
         .from(employes)
-        .innerJoin(usersTable, eq(employes.userId, usersTable.id))
-        .where(eq(usersTable.id, userId));
+        .where(eq(employes.userId, userId));
 
-      const currentTime = new Date();
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "Data karyawan tidak ditemukan",
+        });
+      }
 
-      const shiftDate = currentTime.toISOString().split("T")[0];
+      if (user.employmentStatus !== "active") {
+        return res.status(403).json({
+          success: false,
+          message: "Karyawan tidak aktif",
+        });
+      }
 
-      const employeeIn = [
-        currentTime.getHours(),
-        currentTime.getMinutes(),
-        currentTime.getSeconds(),
-      ]
-        .map((time) => String(time).padStart(2, "0"))
-        .join(":");
+      // Satu timezone untuk tanggal & jam
+      const now = new Date();
+      const shiftDate = now.toLocaleDateString("sv-SE", {
+        timeZone: "Asia/Jakarta",
+      }); // YYYY-MM-DD
+      const currentTime = now.toLocaleTimeString("sv-SE", {
+        timeZone: "Asia/Jakarta",
+      }); // HH:MM:SS
 
-      const userAttendance = await db.insert(employeeAttendance).values({
-        shiftDate,
-        employeeIn,
-        id_employee: user.employeeId,
-      });
-
-      const isPresent = await db
+      // Cek dulu, baru insert/update
+      const [existing] = await db
         .select()
         .from(employeeAttendance)
         .where(
@@ -266,20 +264,34 @@ export class EmployeeFeatures {
           ),
         );
 
-      if (isPresent.length > 0) {
-        await db.update(employeeAttendance).set({
-          employeeOut: shiftDate,
+      if (!existing) {
+        await db.insert(employeeAttendance).values({
+          shiftDate,
+          employeeIn: currentTime,
+          id_employee: user.employeeId,
         });
 
         return res.status(200).json({
           success: true,
-          message: "berhasil mellakukan absensi pulang",
+          message: "Berhasil melakukan absensi kehadiran",
         });
       }
 
+      if (existing.employeeOut) {
+        return res.status(409).json({
+          success: false,
+          message: "Kamu sudah absen pulang hari ini",
+        });
+      }
+
+      await db
+        .update(employeeAttendance)
+        .set({ employeeOut: currentTime })
+        .where(eq(employeeAttendance.shiftId, existing.shiftId));
+
       return res.status(200).json({
         success: true,
-        message: "berhasil melakukan absensi kehadiran",
+        message: "Berhasil melakukan absensi pulang",
       });
     } catch (error) {
       console.error("Scan Attendance Error:", error);
