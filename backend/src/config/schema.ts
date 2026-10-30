@@ -154,10 +154,20 @@ export const shiftSchedule = pgTable("shift", {
     .notNull()
     .references(() => attendanceSettings.id_settings),
   upcomingShiftDate: date(),
-  upcomingShiftTime: integer()
-    .references(() => attendanceSettings.id_settings),
+  upcomingShiftTime: integer().references(() => attendanceSettings.id_settings),
   employeeLocate: text(),
   id_employee: varchar()
     .notNull()
     .references(() => employes.employeeId),
+});
+
+export const attendanceQrCode = pgTable("qr_code", {
+  id_qrCode: integer().primaryKey().generatedAlwaysAsIdentity(),
+  qrCodeToken: varchar({ length: 100 }).notNull(),
+  expiredAt: timestamp("expires_at", {
+    withTimezone: true,
+  }).notNull(),
+  updatedAt: timestamp("updated_at", {
+    withTimezone: true,
+  }).defaultNow(),
 });
