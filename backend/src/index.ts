@@ -6,6 +6,7 @@ import cors from "cors";
 import "../src/lib/telegram/telegram.handler";
 import activationBot from "../src/routes/activation.route";
 import manageEmployees from "../src/routes/manageEmployee.routes"
+import QRgenerate from "../src/routes/attendance.route"
 
 const app = express();
 const PORT = 8000;
@@ -22,6 +23,7 @@ app.use("/verification", verification);
 app.use("/data", employeeData);
 app.use("/activation", activationBot);
 app.use("/manage", manageEmployees);
+app.use("/attendance", QRgenerate);
 
 app.get("/", (req, res) => {
   res.send("Hello Express + TypeScript!");
