@@ -25,6 +25,7 @@ import crypto from "crypto";
 import { employes } from "../../config/schema";
 import { bot } from "../../config/telegramBot";
 import { AuthRequest } from "../../middleware/users.middleware";
+import ExcelJS from "exceljs";
 
 export class HRfeatures {
   // Generate 6-digit numeric token
@@ -775,6 +776,76 @@ export class HRfeatures {
         },
       });
     } catch (error) {}
+  };
+
+  exportExcel = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Sesi tidak valid" });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan melihat jadwal shift karyawan",
+        });
+      }
+
+      // 1. Ambil data dari database
+      const data = await db.select().from(employeeAttendance);
+
+      // 2. Buat workbook
+      const workbook = new ExcelJS.Workbook();
+
+      // 3. Buat worksheet
+      const worksheet = workbook.addWorksheet("Data Karyawan");
+
+      // 4. Buat kolom
+      worksheet.columns = [
+        { header: "ID", key: "id", width: 10 },
+        { header: "Tanggal masuk", key: "tanggal", width: 30 },
+        { header: "absensi masuk", key: "absenMasuk", width: 35 },
+        { header: "absensi keluar", key: "absenKeluar", width: 35 },
+        { header: "kode karyawan", key: "code", width: 50 },
+      ];
+
+      // 5. Masukkan data
+      data.forEach((attendance) => {
+        worksheet.addRow({
+          id: attendance.shiftId,
+          tanggal: attendance.shiftDate,
+          absenMasuk: attendance.employeeIn,
+          absenKeluar: attendance.employeeOut,
+          code: attendance.id_employee,
+        });
+      });
+
+      // 6. Kirim file ke client
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="data-karyawan.xlsx"',
+      );
+
+      await workbook.xlsx.write(res);
+
+      res.end();
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        success: false,
+        message: "Gagal melakukan export Excel",
+      });
+    }
   };
 }
 
