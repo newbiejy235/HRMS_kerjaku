@@ -18,8 +18,17 @@ export class GeminiController {
         success: true,
         data: result,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Gemini Error:", error);
+
+      console.error("Gemini Error:", error);
+
+      if (error.status === 503) {
+        return res.status(503).json({
+          success: false,
+          message: "AI sedang sibuk. Silakan coba beberapa saat lagi.",
+        });
+      }
 
       return res.status(500).json({
         success: false,
