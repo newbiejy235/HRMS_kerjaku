@@ -4,6 +4,7 @@ import {
   passwordResetRequests,
   usersTable,
   shiftSchedule,
+  employeeAttendance,
 } from "../../config/schema";
 import { Request, Response, NextFunction } from "express";
 import {
@@ -739,6 +740,41 @@ export class HRfeatures {
         message: "Gagal mendapatkan jadwal shift karyawan",
       });
     }
+  };
+
+  getAllAttendanceEmployee = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Sesi tidak valid" });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan melihat jadwal shift karyawan",
+        });
+      }
+
+      const data = await db.select().from(employeeAttendance);
+      if (data.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "data absensi masih kosong",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "berhasil mendapatkan semua data kehadiran karyawan",
+        data: {
+          data,
+        },
+      });
+    } catch (error) {}
   };
 }
 
