@@ -194,15 +194,8 @@ export const employeePermission = pgTable("permission", {
   createdAt: timestamp("created_at", {
     withTimezone: true,
   }).defaultNow(),
-  start_date: timestamp("created_at", {
-    withTimezone: true,
-  }).notNull(),
-  end_date: timestamp("created_at", {
-    withTimezone: true,
-  }).notNull(),
+  start_date: date("start_date").notNull(),
+  end_date: date("end_date").notNull(),
   status: permissionStatus().notNull().default("pending"),
-  approved_by: integer()
-    .notNull()
-    .references(() => usersTable.id),
+  approved_by: integer().references(() => usersTable.id),
 });
-  

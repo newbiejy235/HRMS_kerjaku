@@ -8,10 +8,13 @@ import {
   usersTable,
   attendanceQrCode,
   employeeAttendance,
+  employeePermission,
 } from "../../config/schema";
 import { AuthRequest } from "../../middleware/users.middleware";
+import { permissionSchema } from "../../validation/permission.validation";
 import QRCode from "qrcode";
 import crypto from "node:crypto";
+import { ZodError } from "zod";
 
 export class EmployeeFeatures {
   employeeProfile = async (req: AuthRequest, res: Response) => {
@@ -299,6 +302,68 @@ export class EmployeeFeatures {
       return res.status(500).json({
         success: false,
         message: "Terjadi kesalahan server",
+      });
+    }
+  };
+
+  // employee request permission
+  employeePermission = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user?.userId;
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      const [userAccount] = await db
+        .select({ employee_code: employes.employeeId })
+        .from(employes)
+        .where(eq(employes.userId, user));
+
+      if (!userAccount) {
+        return res.status(404).json({
+          success: false,
+          message: "Data karyawan tidak ditemukan",
+        });
+      }
+
+      const validation = permissionSchema.parse(req.body);
+
+      const { start_date, end_date, permit_type, permit_reason } = validation;
+
+      const insertPermission = await db
+        .insert(employeePermission)
+        .values({
+          id_employee: userAccount.employee_code,
+          start_date,
+          end_date,
+          permit_type,
+          permit_reason,
+        })
+        .returning();
+
+      return res.status(201).json({
+        success: true,
+        message: "Pengajuan izin berhasil dibuat",
+        data: insertPermission[0],
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: error.flatten().fieldErrors,
+        });
+      }
+
+      console.error(error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
       });
     }
   };

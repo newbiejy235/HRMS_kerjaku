@@ -958,130 +958,144 @@ export class HRfeatures {
     }
   };
 
+  exportExcelEmployee = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
 
-exportExcelEmployee = async (req: AuthRequest, res: Response) => {
-  try {
-    const user = req.user;
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
 
-    if (!user?.userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Sesi tidak valid",
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan melihat data karyawan",
+        });
+      }
+
+      // 1. Ambil data karyawan beserta relasinya
+      const data = await db
+        .select({
+          employeeId: employes.employeeId,
+          firstName: employes.firstName,
+          lastName: employes.lastName,
+          email: usersTable.email,
+          gender: employes.gender,
+          noTelp: employes.noTelp,
+          noRek: employes.noRek,
+          nip: employes.nip,
+          hireDate: employes.hire_date,
+          resignDate: employes.resign_date,
+          employmentStatus: employes.employment_status,
+          city: cities.kota,
+          province: provinces.provinsi,
+          position: position.position_name,
+          department: department.department_name,
+        })
+        .from(employes)
+        .leftJoin(usersTable, eq(employes.userId, usersTable.id))
+        .leftJoin(cities, eq(employes.cities_id, cities.id))
+        .leftJoin(provinces, eq(cities.provinsi_id, provinces.id))
+        .leftJoin(position, eq(employes.idPosition, position.id_position))
+        .leftJoin(
+          department,
+          eq(employes.idDepartment, department.id_department),
+        );
+
+      // 2. Buat workbook
+      const workbook = new ExcelJS.Workbook();
+
+      // 3. Buat worksheet
+      const worksheet = workbook.addWorksheet("Data Karyawan");
+
+      // 4. Buat kolom
+      worksheet.columns = [
+        { header: "Kode Karyawan", key: "employeeId", width: 20 },
+        { header: "Nama Depan", key: "firstName", width: 20 },
+        { header: "Nama Belakang", key: "lastName", width: 20 },
+        { header: "Email", key: "email", width: 30 },
+        { header: "Jenis Kelamin", key: "gender", width: 15 },
+        { header: "No Telepon", key: "noTelp", width: 20 },
+        { header: "No Rekening", key: "noRek", width: 20 },
+        { header: "NIP", key: "nip", width: 20 },
+        { header: "Tanggal Masuk", key: "hireDate", width: 20 },
+        { header: "Tanggal Resign", key: "resignDate", width: 20 },
+        { header: "Status", key: "employmentStatus", width: 15 },
+        { header: "Kota", key: "city", width: 20 },
+        { header: "Provinsi", key: "province", width: 20 },
+        { header: "Jabatan", key: "position", width: 25 },
+        { header: "Departemen", key: "department", width: 25 },
+      ];
+
+      // 5. Masukkan data
+      data.forEach((employee) => {
+        worksheet.addRow({
+          employeeId: employee.employeeId,
+          firstName: employee.firstName,
+          lastName: employee.lastName ?? "-",
+          email: employee.email,
+          gender: employee.gender,
+          noTelp: employee.noTelp ?? "-",
+          noRek: employee.noRek,
+          nip: employee.nip,
+          hireDate: employee.hireDate,
+          resignDate: employee.resignDate ?? "-",
+          employmentStatus: employee.employmentStatus,
+          city: employee.city,
+          province: employee.province,
+          position: employee.position,
+          department: employee.department,
+        });
       });
-    }
 
-    if (user.role !== "HR") {
-      return res.status(403).json({
-        success: false,
-        message: "Anda tidak diizinkan melihat data karyawan",
-      });
-    }
-
-    // 1. Ambil data karyawan beserta relasinya
-    const data = await db
-      .select({
-        employeeId: employes.employeeId,
-        firstName: employes.firstName,
-        lastName: employes.lastName,
-        email: usersTable.email,
-        gender: employes.gender,
-        noTelp: employes.noTelp,
-        noRek: employes.noRek,
-        nip: employes.nip,
-        hireDate: employes.hire_date,
-        resignDate: employes.resign_date,
-        employmentStatus: employes.employment_status,
-        city: cities.kota,
-        province: provinces.provinsi,
-        position: position.position_name,
-        department: department.department_name,
-      })
-      .from(employes)
-      .leftJoin(usersTable, eq(employes.userId, usersTable.id))
-      .leftJoin(cities, eq(employes.cities_id, cities.id))
-      .leftJoin(provinces, eq(cities.provinsi_id, provinces.id))
-      .leftJoin(
-        position,
-        eq(employes.idPosition, position.id_position),
-      )
-      .leftJoin(
-        department,
-        eq(employes.idDepartment, department.id_department),
+      // 6. Kirim file ke client
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       );
 
-    // 2. Buat workbook
-    const workbook = new ExcelJS.Workbook();
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="data-karyawan.xlsx"',
+      );
 
-    // 3. Buat worksheet
-    const worksheet = workbook.addWorksheet("Data Karyawan");
+      await workbook.xlsx.write(res);
 
-    // 4. Buat kolom
-    worksheet.columns = [
-      { header: "Kode Karyawan", key: "employeeId", width: 20 },
-      { header: "Nama Depan", key: "firstName", width: 20 },
-      { header: "Nama Belakang", key: "lastName", width: 20 },
-      { header: "Email", key: "email", width: 30 },
-      { header: "Jenis Kelamin", key: "gender", width: 15 },
-      { header: "No Telepon", key: "noTelp", width: 20 },
-      { header: "No Rekening", key: "noRek", width: 20 },
-      { header: "NIP", key: "nip", width: 20 },
-      { header: "Tanggal Masuk", key: "hireDate", width: 20 },
-      { header: "Tanggal Resign", key: "resignDate", width: 20 },
-      { header: "Status", key: "employmentStatus", width: 15 },
-      { header: "Kota", key: "city", width: 20 },
-      { header: "Provinsi", key: "province", width: 20 },
-      { header: "Jabatan", key: "position", width: 25 },
-      { header: "Departemen", key: "department", width: 25 },
-    ];
+      res.end();
+    } catch (error) {
+      console.error(error);
 
-    // 5. Masukkan data
-    data.forEach((employee) => {
-      worksheet.addRow({
-        employeeId: employee.employeeId,
-        firstName: employee.firstName,
-        lastName: employee.lastName ?? "-",
-        email: employee.email,
-        gender: employee.gender,
-        noTelp: employee.noTelp ?? "-",
-        noRek: employee.noRek,
-        nip: employee.nip,
-        hireDate: employee.hireDate,
-        resignDate: employee.resignDate ?? "-",
-        employmentStatus: employee.employmentStatus,
-        city: employee.city,
-        province: employee.province,
-        position: employee.position,
-        department: employee.department,
-      });
-    });
-
-    // 6. Kirim file ke client
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    );
-
-    res.setHeader(
-      "Content-Disposition",
-      'attachment; filename="data-karyawan.xlsx"',
-    );
-
-    await workbook.xlsx.write(res);
-
-    res.end();
-  } catch (error) {
-    console.error(error);
-
-    if (!res.headersSent) {
-      res.status(500).json({
-        success: false,
-        message: "Gagal melakukan export Excel",
-      });
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          message: "Gagal melakukan export Excel",
+        });
+      }
     }
-  }
-};
+  };
 
+  employeePermission = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
 
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan melihat data karyawan",
+        });
+      }
+    } catch (error) {}
+  };
 }
 
 export default new HRfeatures();
