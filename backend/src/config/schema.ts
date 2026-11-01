@@ -171,3 +171,37 @@ export const attendanceQrCode = pgTable("qr_code", {
     withTimezone: true,
   }).defaultNow(),
 });
+
+export const permissionType = pgEnum("permissionType", [
+  "permission",
+  "sick",
+  "holiday",
+]);
+
+export const permissionStatus = pgEnum("status", [
+  "pending",
+  "rejected",
+  "accepted",
+]);
+
+export const employeePermission = pgTable("permission", {
+  id_permission: integer().primaryKey().generatedAlwaysAsIdentity(),
+  id_employee: varchar({ length: 30 })
+    .notNull()
+    .references(() => employes.employeeId),
+  permit_type: permissionType().notNull(),
+  permit_reason: text(),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+  }).defaultNow(),
+  start_date: timestamp("created_at", {
+    withTimezone: true,
+  }).notNull(),
+  end_date: timestamp("created_at", {
+    withTimezone: true,
+  }).notNull(),
+  status: permissionStatus().notNull().default("pending"),
+  approved_by: integer()
+    .notNull()
+    .references(() => usersTable.id),
+});
