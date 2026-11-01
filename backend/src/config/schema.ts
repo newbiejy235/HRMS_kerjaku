@@ -199,3 +199,15 @@ export const employeePermission = pgTable("permission", {
   status: permissionStatus().notNull().default("pending"),
   approved_by: integer().references(() => usersTable.id),
 });
+
+export const overtime = pgTable("overtime", {
+  id_overwork: integer().primaryKey().generatedAlwaysAsIdentity(),
+  id_employee: varchar({ length: 30 })
+    .notNull()
+    .references(() => employes.employeeId),
+  overtimeDate: timestamp().notNull(),
+  overtimeTotal: integer().notNull(),
+  description: text(),
+  status: permissionStatus().notNull().default("pending"),
+  approved_by: integer().references(() => usersTable.id),
+});

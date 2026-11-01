@@ -9,6 +9,7 @@ import {
   provinces,
   position,
   department,
+  overtime,
 } from "../../config/schema";
 import { Request, Response, NextFunction } from "express";
 import {
@@ -1077,7 +1078,7 @@ export class HRfeatures {
     }
   };
 
-  employeePermission = async (req: AuthRequest, res: Response) => {
+  HRresponsePermission = async (req: AuthRequest, res: Response) => {
     try {
       const user = req.user;
 
@@ -1091,11 +1092,94 @@ export class HRfeatures {
       if (user.role !== "HR") {
         return res.status(403).json({
           success: false,
-          message: "Anda tidak diizinkan melihat data karyawan",
+          message: "Anda tidak diizinkan untuk akses fitur ini",
         });
       }
-    } catch (error) {}
+
+      const userRequest = req.body;
+      const { status, id_permission } = userRequest;
+
+      const insertPermission = await db
+        .update(employeePermission)
+        .set({
+          status: status,
+          approved_by: user.userId,
+        })
+        .where(eq(employeePermission.id_permission, id_permission));
+
+      return res.status(201).json({
+        success: true,
+        message: "berhasil menanggapi permintaan karyawan",
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: error.flatten().fieldErrors,
+        });
+      }
+
+      console.error(error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
   };
+
+  HRresponseOvertime = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      const userRequest = req.body;
+      const { status, id_overtime } = userRequest;
+
+      const [insertOvertime] = await db
+        .update(overtime)
+        .set({
+          status: status,
+          approved_by: user.userId,
+        })
+        .where(eq(overtime.id_overwork, id_overtime))
+        .returning();
+
+      return res.status(201).json({
+        success: true,
+        message: "berhasil menanggapi permintaan karyawan",
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: error.flatten().fieldErrors,
+        });
+      }
+
+      console.error(error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };  
 }
 
 export default new HRfeatures();

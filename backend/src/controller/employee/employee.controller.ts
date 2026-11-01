@@ -9,7 +9,9 @@ import {
   attendanceQrCode,
   employeeAttendance,
   employeePermission,
+  overtime
 } from "../../config/schema";
+import { overtimeSchema } from "../../validation/overtime.validation";
 import { AuthRequest } from "../../middleware/users.middleware";
 import { permissionSchema } from "../../validation/permission.validation";
 import QRCode from "qrcode";
@@ -349,6 +351,66 @@ export class EmployeeFeatures {
         success: true,
         message: "Pengajuan izin berhasil dibuat",
         data: insertPermission[0],
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: error.flatten().fieldErrors,
+        });
+      }
+
+      console.error(error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
+
+  employeeOvertime = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user?.userId;
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      const [userAccount] = await db
+        .select({ employee_code: employes.employeeId })
+        .from(employes)
+        .where(eq(employes.userId, user));
+
+      if (!userAccount) {
+        return res.status(404).json({
+          success: false,
+          message: "Data karyawan tidak ditemukan",
+        });
+      }
+
+      const validation = overtimeSchema.parse(req.body);
+
+      const { overtimeDate, overtimeTotal, description } = validation;
+
+      const insertOvertime = await db
+        .insert(overtime)
+        .values({
+          id_employee: userAccount.employee_code,
+          overtimeDate : new Date(overtimeDate),
+          overtimeTotal : overtimeTotal,
+          description : description,
+        })
+        .returning();
+
+      return res.status(201).json({
+        success: true,
+        message: "Pengajuan lembur berhasil dibuat",
+        data: insertOvertime[0],
       });
     } catch (error) {
       if (error instanceof ZodError) {

@@ -5,5 +5,6 @@ import { Router } from "express";
 const router = Router();
 
 router.post("/request/employee", authenticate, EmployeeFeatures.employeePermission)
+router.post("/request/overtime", authenticate, EmployeeFeatures.employeeOvertime)
 
 export default router;
