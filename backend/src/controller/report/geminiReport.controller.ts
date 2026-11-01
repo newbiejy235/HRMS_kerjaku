@@ -9,7 +9,7 @@ export class GeminiController {
       console.log("1. Controller dipanggil");
 
       const result = await geminiService.analyzeData({
-        tes: "halo",
+        name: "budi",
       });
 
       console.log("3. Hasil diterima");

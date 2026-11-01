@@ -1,16 +1,21 @@
-import { gemini } from "../config/gemini";
+import dotenv from "dotenv";
+dotenv.config();
+
+import { GoogleGenAI } from "@google/genai";
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_APIKEY });
 
 export class GeminiService {
   analyzeData = async (data: object) => {
     console.log("Mengirim request ke Gemini...");
 
-    const response = await gemini.models.generateContent({
+    const response = await ai.interactions.create({
       model: "gemini-3.8-flash",
-      contents: `Balas dengan singkat berdasarkan data ini: ${JSON.stringify(data)}`,
+      input: `say hello to  ${JSON.stringify(data, null, 2)}`,
     });
 
     console.log("Gemini berhasil merespons!");
 
-    return response.text;
+    return console.log(response.output_text);
   };
 }
