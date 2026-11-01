@@ -205,3 +205,4 @@ export const employeePermission = pgTable("permission", {
     .notNull()
     .references(() => usersTable.id),
 });
+  

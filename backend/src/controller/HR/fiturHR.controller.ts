@@ -30,6 +30,7 @@ import { employes } from "../../config/schema";
 import { bot } from "../../config/telegramBot";
 import { AuthRequest } from "../../middleware/users.middleware";
 import ExcelJS from "exceljs";
+import { employeePermission } from "../../config/schema";
 
 export class HRfeatures {
   // Generate 6-digit numeric token
@@ -1079,6 +1080,8 @@ exportExcelEmployee = async (req: AuthRequest, res: Response) => {
     }
   }
 };
+
+
 }
 
 export default new HRfeatures();
