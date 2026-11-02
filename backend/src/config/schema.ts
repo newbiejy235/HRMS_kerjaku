@@ -7,7 +7,14 @@ import {
   varchar,
   text,
   time,
+  numeric,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+
+export const payrollComponentType = pgEnum("payroll_component_type", [
+  "earning",
+  "deduction",
+]);
 
 export const userRole = pgEnum("userRole", ["Karyawan", "Finance", "HR"]);
 export const employmentStatusEnum = pgEnum("employment_status", [
