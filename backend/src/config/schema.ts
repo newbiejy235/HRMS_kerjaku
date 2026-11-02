@@ -12,8 +12,11 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const payrollComponentType = pgEnum("payroll_component_type", [
-  "earning",
-  "deduction",
+  "BPJS Kesehatan",
+  "BPJS Ketenagakerjaan",
+  "Pajak Penghasilan",
+  "lembur",
+  "reimburs"
 ]);
 
 export const userRole = pgEnum("userRole", ["Karyawan", "Finance", "HR"]);
@@ -235,4 +238,34 @@ export const payrollComponents = pgTable(
     type: payrollComponentType()
       .notNull(),
   }
+);
+
+export const employeePayrollAllocations = pgTable(
+  "employee_payroll_allocations",
+  {
+    allocationId: integer()
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
+
+    componentId: integer("component_id")
+      .notNull()
+      .references(() => payrollComponents.componentId),
+
+    employeeId: varchar("employee_id", {
+      length: 30,
+    })
+      .notNull()
+      .references(() => employes.employeeId),
+
+    amount: numeric("amount", {
+      precision: 15,
+      scale: 2,
+    }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("employee_component_unique").on(
+      table.employeeId,
+      table.componentId
+    ),
+  ]
 );
