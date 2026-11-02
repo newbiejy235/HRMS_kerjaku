@@ -218,3 +218,21 @@ export const overtime = pgTable("overtime", {
   status: permissionStatus().notNull().default("pending"),
   approved_by: integer().references(() => usersTable.id),
 });
+
+export const payrollComponents = pgTable(
+  "payroll_components",
+  {
+    componentId: integer()
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
+
+    componentName: varchar("component_name", {
+      length: 255,
+    }).notNull(),
+
+    description: text(),
+
+    type: payrollComponentType()
+      .notNull(),
+  }
+);
