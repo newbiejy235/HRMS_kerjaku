@@ -269,3 +269,49 @@ export const employeePayrollAllocations = pgTable(
     ),
   ]
 );
+
+export const payrolls = pgTable(
+  "payrolls",
+  {
+    payrollId: integer()
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
+
+    employeeId: varchar("employee_id", {
+      length: 30,
+    })
+      .notNull()
+      .references(() => employes.employeeId),
+
+    payrollPeriod: varchar("payroll_period", {
+      length: 7,
+    }).notNull(),
+
+    totalEarnings: numeric("total_earnings", {
+      precision: 15,
+      scale: 2,
+    })
+      .notNull()
+      .default("0"),
+
+    totalDeductions: numeric("total_deductions", {
+      precision: 15,
+      scale: 2,
+    })
+      .notNull()
+      .default("0"),
+
+    netSalary: numeric("net_salary", {
+      precision: 15,
+      scale: 2,
+    })
+      .notNull()
+      .default("0"),
+  },
+  (table) => [
+    uniqueIndex("employee_payroll_period_unique").on(
+      table.employeeId,
+      table.payrollPeriod
+    ),
+  ]
+);
