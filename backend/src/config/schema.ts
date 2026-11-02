@@ -16,7 +16,7 @@ export const payrollComponentType = pgEnum("payroll_component_type", [
   "BPJS Ketenagakerjaan",
   "Pajak Penghasilan",
   "lembur",
-  "reimburs"
+  "reimburs",
 ]);
 
 export const userRole = pgEnum("userRole", ["Karyawan", "Finance", "HR"]);
@@ -222,30 +222,22 @@ export const overtime = pgTable("overtime", {
   approved_by: integer().references(() => usersTable.id),
 });
 
-export const payrollComponents = pgTable(
-  "payroll_components",
-  {
-    componentId: integer()
-      .primaryKey()
-      .generatedAlwaysAsIdentity(),
+export const payrollComponents = pgTable("payroll_components", {
+  componentId: integer().primaryKey().generatedAlwaysAsIdentity(),
 
-    componentName: varchar("component_name", {
-      length: 255,
-    }).notNull(),
+  componentName: varchar("component_name", {
+    length: 255,
+  }).notNull(),
 
-    description: text(),
+  description: text(),
 
-    type: payrollComponentType()
-      .notNull(),
-  }
-);
+  type: payrollComponentType().notNull(),
+});
 
 export const employeePayrollAllocations = pgTable(
   "employee_payroll_allocations",
   {
-    allocationId: integer()
-      .primaryKey()
-      .generatedAlwaysAsIdentity(),
+    allocationId: integer().primaryKey().generatedAlwaysAsIdentity(),
 
     componentId: integer("component_id")
       .notNull()
@@ -265,17 +257,15 @@ export const employeePayrollAllocations = pgTable(
   (table) => [
     uniqueIndex("employee_component_unique").on(
       table.employeeId,
-      table.componentId
+      table.componentId,
     ),
-  ]
+  ],
 );
 
 export const payrolls = pgTable(
   "payrolls",
   {
-    payrollId: integer()
-      .primaryKey()
-      .generatedAlwaysAsIdentity(),
+    payrollId: integer().primaryKey().generatedAlwaysAsIdentity(),
 
     employeeId: varchar("employee_id", {
       length: 30,
@@ -311,7 +301,26 @@ export const payrolls = pgTable(
   (table) => [
     uniqueIndex("employee_payroll_period_unique").on(
       table.employeeId,
-      table.payrollPeriod
+      table.payrollPeriod,
     ),
-  ]
+  ],
 );
+
+export const payrollDetails = pgTable("payroll_details", {
+  detailId: integer().primaryKey().generatedAlwaysAsIdentity(),
+
+  payrollId: integer("payroll_id")
+    .notNull()
+    .references(() => payrolls.payrollId),
+
+  componentId: integer("component_id")
+    .notNull()
+    .references(() => payrollComponents.componentId),
+
+  amount: numeric("amount", {
+    precision: 15,
+    scale: 2,
+  }).notNull(),
+
+  description: text(),
+});
