@@ -1,5 +1,5 @@
 import { db } from "../../config/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql, asc } from "drizzle-orm";
 import {
   passwordResetRequests,
   usersTable,
@@ -10,8 +10,12 @@ import {
   position,
   department,
   overtime,
+  payrolls,
+  payrollDetails,
+  payrollComponents,
 } from "../../config/schema";
 import { Request, Response, NextFunction } from "express";
+import { hrApprovalPayrollSchema } from "../../validation/finance.validation";
 import {
   createVerificationSchema,
   reviewVerificationSchema,
@@ -1179,7 +1183,151 @@ export class HRfeatures {
         message: "Terjadi kesalahan pada server",
       });
     }
-  };  
+  };
+
+  // GET: HR melihat daftar request payroll yang menunggu approval
+  getPendingPayrollRequests = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid, silakan login kembali",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      const pendingPayrolls = await db
+        .select({
+          payrollId: payrolls.payrollId,
+          employeeId: payrolls.employeeId,
+          employeeName: sql<string>`CONCAT(${employes.firstName}, ' ', COALESCE(${employes.lastName}, ''))`,
+          payrollPeriod: payrolls.payrollPeriod,
+          totalEarnings: payrolls.totalEarnings,
+          totalDeductions: payrolls.totalDeductions,
+          netSalary: payrolls.netSalary,
+          status: payrolls.status,
+        })
+        .from(payrolls)
+        .innerJoin(employes, eq(payrolls.employeeId, employes.employeeId))
+        .where(eq(payrolls.status, "pending"))
+        .orderBy(asc(payrolls.payrollId));
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil mengambil daftar request payroll yang menunggu approval",
+        data: pendingPayrolls,
+      });
+    } catch (error) {
+      console.error("Error in getPendingPayrollRequests:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
+
+  // POST: HR melakukan approval / review terhadap request payroll dari Finance
+  approvePayrollRequest = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid, silakan login kembali",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      // 1. Validasi input menggunakan Zod
+      const validated = hrApprovalPayrollSchema.parse(req.body);
+      const { payrollId, status } = validated;
+
+      // 2. Pastikan request payroll tersedia
+      const [existingPayroll] = await db
+        .select()
+        .from(payrolls)
+        .where(eq(payrolls.payrollId, payrollId))
+        .limit(1);
+
+      if (!existingPayroll) {
+        return res.status(404).json({
+          success: false,
+          message: "Request payroll tidak ditemukan",
+        });
+      }
+
+      // 3. Pastikan status request masih menunggu approval (pending)
+      // Cegah approval berulang jika statusnya sudah berubah
+      if (existingPayroll.status !== "pending") {
+        return res.status(400).json({
+          success: false,
+          message: `Request payroll sudah diproses sebelumnya dengan status '${existingPayroll.status}' dan tidak dapat diubah kembali`,
+        });
+      }
+
+      // 4. Update status dan review_by (diambil dari token user.userId, bukan body)
+      // Menggunakan where condition status = 'pending' untuk mencegah race condition
+      const [updatedPayroll] = await db
+        .update(payrolls)
+        .set({
+          status: status,
+          review_by: user.userId,
+        })
+        .where(
+          and(
+            eq(payrolls.payrollId, payrollId),
+            eq(payrolls.status, "pending"),
+          ),
+        )
+        .returning();
+
+      if (!updatedPayroll) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "Gagal memproses approval: Request payroll telah diproses secara bersamaan oleh sesi lain",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `Request payroll berhasil ${status === "accepted" ? "disetujui" : "ditolak"}`,
+        data: updatedPayroll,
+      });
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: error.issues.map((issue) => ({
+            field: issue.path.join("."),
+            message: issue.message,
+          })),
+        });
+      }
+
+      console.error("Error in approvePayrollRequest:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
 }
 
 export default new HRfeatures();
