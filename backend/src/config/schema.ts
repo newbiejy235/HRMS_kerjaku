@@ -7,7 +7,23 @@ import {
   varchar,
   text,
   time,
+  numeric,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+
+export const payrollComponents = pgTable("payroll_components", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+
+  componentName: varchar("component_name", {
+    length: 100,
+  })
+    .notNull()
+    .unique(),
+
+  description: text("description"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 export const userRole = pgEnum("userRole", ["Karyawan", "Finance", "HR"]);
 export const employmentStatusEnum = pgEnum("employment_status", [
@@ -65,6 +81,8 @@ export const employes = pgTable("employes", {
     .references(() => cities.id),
   noRek: varchar({ length: 100 }).notNull(),
   nip: varchar({ length: 100 }).notNull(),
+  BPJS_Kesehatan: varchar({ length: 100 }),
+  BPJS_Ketenagakerjaan: varchar({ length: 100 }),
   hire_date: date("hire_date").notNull(),
   resign_date: date("resign_date"),
   idPosition: integer("id_position")
@@ -210,4 +228,115 @@ export const overtime = pgTable("overtime", {
   description: text(),
   status: permissionStatus().notNull().default("pending"),
   approved_by: integer().references(() => usersTable.id),
+});
+
+export const employeePayrollComponents = pgTable(
+  "employee_payroll_components",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+
+    payrollComponentId: integer()
+      .notNull()
+      .references(() => payrollComponents.id),
+
+    amount: integer().notNull(),
+
+    description: text(),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+);
+
+export const employeePayrollAllocations = pgTable(
+  "employee_payroll_allocations",
+  {
+    allocationId: integer().primaryKey().generatedAlwaysAsIdentity(),
+
+    componentId: integer("component_id")
+      .notNull()
+      .references(() => payrollComponents.id),
+
+    employeeId: varchar("employee_id", {
+      length: 30,
+    })
+      .notNull()
+      .references(() => employes.employeeId),
+
+    amount: numeric("amount", {
+      precision: 15,
+      scale: 2,
+    }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("employee_component_unique").on(
+      table.employeeId,
+      table.componentId,
+    ),
+  ],
+);
+
+export const payrolls = pgTable(
+  "payrolls",
+  {
+    payrollId: integer().primaryKey().generatedAlwaysAsIdentity(),
+
+    employeeId: varchar("employee_id", {
+      length: 30,
+    })
+      .notNull()
+      .references(() => employes.employeeId),
+
+    payrollPeriod: varchar("payroll_period", {
+      length: 7,
+    }).notNull(),
+
+    totalEarnings: numeric("total_earnings", {
+      precision: 15,
+      scale: 2,
+    })
+      .notNull()
+      .default("0"),
+
+    totalDeductions: numeric("total_deductions", {
+      precision: 15,
+      scale: 2,
+    })
+      .notNull()
+      .default("0"),
+
+    netSalary: numeric("net_salary", {
+      precision: 15,
+      scale: 2,
+    })
+      .notNull()
+      .default("0"),
+
+    status: permissionStatus().notNull().default("pending"),
+    review_by: integer().references(() => usersTable.id),
+  },
+  (table) => [
+    uniqueIndex("employee_payroll_period_unique").on(
+      table.employeeId,
+      table.payrollPeriod,
+    ),
+  ],
+);
+
+export const payrollDetails = pgTable("payroll_details", {
+  detailId: integer().primaryKey().generatedAlwaysAsIdentity(),
+
+  payrollId: integer("payroll_id")
+    .notNull()
+    .references(() => payrolls.payrollId),
+
+  componentId: integer("component_id")
+    .notNull()
+    .references(() => payrollComponents.id),
+
+  amount: numeric("amount", {
+    precision: 15,
+    scale: 2,
+  }).notNull(),
+
+  description: text(),
 });
