@@ -1,11 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { 
-  LayoutDashboard, Users, Clock, CalendarDays, 
-  FileText, Settings, LogOut 
-} from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { LayoutDashboard, Users, Clock, CalendarDays, FileText, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const menus = {
@@ -25,18 +22,23 @@ const menus = {
 
 export function Sidebar({ role }: { role: "hr" | "finance" }) {
   const pathname = usePathname();
+  const router = useRouter();
   const menuItems = menus[role];
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    router.push("/login");
+  };
 
   return (
     <div className="flex h-full w-64 flex-col border-r border-border bg-card">
-      {/* Logo */}
       <div className="flex h-16 items-center px-6 border-b border-border">
         <span className="text-xl font-bold text-primary font-heading tracking-tight">
           KerjaKu.
         </span>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
         {menuItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
@@ -46,8 +48,8 @@ export function Sidebar({ role }: { role: "hr" | "finance" }) {
               href={item.href}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive 
-                  ? "bg-emerald-50 text-emerald-800" // <-- Diubah ke Emerald
+                isActive
+                  ? "bg-emerald-50 text-emerald-800"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               )}
             >
@@ -58,7 +60,6 @@ export function Sidebar({ role }: { role: "hr" | "finance" }) {
         })}
       </nav>
 
-      {/* Bottom Menu */}
       <div className="p-4 border-t border-border space-y-1">
         <Link
           href="/settings"
@@ -68,6 +69,7 @@ export function Sidebar({ role }: { role: "hr" | "finance" }) {
           Pengaturan
         </Link>
         <button
+          onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 transition-colors"
         >
           <LogOut className="h-[18px] w-[18px] text-rose-500" />
