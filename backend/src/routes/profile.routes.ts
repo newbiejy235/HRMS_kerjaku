@@ -9,4 +9,7 @@ router.get("/myProfile", authenticate, EmployeeFeatures.employeeProfile);
 router.get("/my-shift", authenticate, EmployeeFeatures.myShiftSchedule);
 router.get("/", authenticate, HRfeatures.getAllEmployee);
 
+// GET /api/payroll/my-slip?period=2026-11 <-- untuk lihat dari rentang periode
+router.get("/my-slip", authenticate, EmployeeFeatures.getMyPayslips);
+
 export default router;

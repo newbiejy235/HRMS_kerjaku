@@ -1,4 +1,4 @@
-import { and, eq, gt } from "drizzle-orm";
+import { and, desc, eq, gt } from "drizzle-orm";
 import { Request, Response } from "express";
 import { db } from "../../config/db";
 import {
@@ -9,7 +9,11 @@ import {
   attendanceQrCode,
   employeeAttendance,
   employeePermission,
-  overtime
+  overtime,
+  payrolls,
+  payrollDetails,
+  payrollComponents,
+  employeePayrollAllocations,
 } from "../../config/schema";
 import { overtimeSchema } from "../../validation/overtime.validation";
 import { AuthRequest } from "../../middleware/users.middleware";
@@ -401,9 +405,9 @@ export class EmployeeFeatures {
         .insert(overtime)
         .values({
           id_employee: userAccount.employee_code,
-          overtimeDate : new Date(overtimeDate),
-          overtimeTotal : overtimeTotal,
-          description : description,
+          overtimeDate: new Date(overtimeDate),
+          overtimeTotal: overtimeTotal,
+          description: description,
         })
         .returning();
 
@@ -426,6 +430,171 @@ export class EmployeeFeatures {
       return res.status(500).json({
         success: false,
         message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
+
+  getMyPayslips = async (req: AuthRequest, res: Response) => {
+    try {
+      // 1. Validasi JWT
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Token tidak valid atau sesi telah berakhir",
+        });
+      }
+
+      // 2. Validasi periode
+      const period = req.query.period;
+
+      if (
+        period !== undefined &&
+        (typeof period !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(period))
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Format periode harus YYYY-MM",
+        });
+      }
+
+      // 3. Ambil employee berdasarkan userId JWT
+      const [employee] = await db
+        .select({
+          employeeId: employes.employeeId,
+          firstName: employes.firstName,
+          lastName: employes.lastName,
+          nip: employes.nip,
+        })
+        .from(employes)
+        .where(eq(employes.userId, user.userId))
+        .limit(1);
+
+      if (!employee) {
+        return res.status(404).json({
+          success: false,
+          message: "Data karyawan tidak ditemukan",
+        });
+      }
+
+      // 4. Kondisi payroll
+      const conditions = [
+        eq(payrolls.employeeId, employee.employeeId),
+        eq(payrolls.status, "accepted"),
+      ];
+
+      if (typeof period === "string") {
+        conditions.push(eq(payrolls.payrollPeriod, period));
+      }
+
+      // 5. JOIN payroll + alokasi + komponen
+      const payrollData = await db
+        .select({
+          payrollId: payrolls.payrollId,
+          payrollPeriod: payrolls.payrollPeriod,
+          totalEarnings: payrolls.totalEarnings,
+          totalDeductions: payrolls.totalDeductions,
+          netSalary: payrolls.netSalary,
+          status: payrolls.status,
+          reviewBy: payrolls.review_by,
+
+          allocationId: employeePayrollAllocations.allocationId,
+          componentId: payrollComponents.id,
+          componentName: payrollComponents.componentName,
+          componentDescription: payrollComponents.description,
+          allocationAmount: employeePayrollAllocations.amount,
+        })
+        .from(payrolls)
+        .leftJoin(
+          employeePayrollAllocations,
+          eq(payrolls.employeeId, employeePayrollAllocations.employeeId),
+        )
+        .leftJoin(
+          payrollComponents,
+          eq(employeePayrollAllocations.componentId, payrollComponents.id),
+        )
+        .where(and(...conditions))
+        .orderBy(desc(payrolls.payrollPeriod));
+
+      // 6. Validasi data payroll
+      if (payrollData.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message:
+            typeof period === "string"
+              ? `Slip gaji periode ${period} tidak ditemukan`
+              : "Belum ada slip gaji yang disetujui",
+        });
+      }
+
+      // 7. Kelompokkan hasil berdasarkan payrollId
+      const groupedPayroll = new Map<
+        number,
+        {
+          payrollId: number;
+          payrollPeriod: string;
+          totalEarnings: string;
+          totalDeductions: string;
+          netSalary: string;
+          status: string;
+          reviewBy: number | null;
+          components: {
+            allocationId: number;
+            componentId: number;
+            componentName: string;
+            description: string | null;
+            amount: string;
+          }[];
+        }
+      >();
+
+      for (const row of payrollData) {
+        if (!groupedPayroll.has(row.payrollId)) {
+          groupedPayroll.set(row.payrollId, {
+            payrollId: row.payrollId,
+            payrollPeriod: row.payrollPeriod,
+            totalEarnings: row.totalEarnings,
+            totalDeductions: row.totalDeductions,
+            netSalary: row.netSalary,
+            status: row.status,
+            reviewBy: row.reviewBy,
+            components: [],
+          });
+        }
+
+        if (
+          row.allocationId !== null &&
+          row.componentId !== null &&
+          row.componentName !== null &&
+          row.allocationAmount !== null
+        ) {
+          groupedPayroll.get(row.payrollId)!.components.push({
+            allocationId: row.allocationId,
+            componentId: row.componentId,
+            componentName: row.componentName,
+            description: row.componentDescription,
+            amount: row.allocationAmount,
+          });
+        }
+      }
+
+      // 8. Response
+      return res.status(200).json({
+        success: true,
+        message: "Slip gaji berhasil ditemukan",
+        data: {
+          employee,
+          totalSlips: groupedPayroll.size,
+          payslips: Array.from(groupedPayroll.values()),
+        },
+      });
+    } catch (error) {
+      console.error("Get My Payslips Error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan saat mengambil slip gaji",
       });
     }
   };
