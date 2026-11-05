@@ -11,20 +11,6 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-export const payrollComponents = pgTable("payroll_components", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-
-  componentName: varchar("component_name", {
-    length: 100,
-  })
-    .notNull()
-    .unique(),
-
-  description: text("description"),
-
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
 export const userRole = pgEnum("userRole", ["Karyawan", "Finance", "HR"]);
 export const employmentStatusEnum = pgEnum("employment_status", [
   "active",
@@ -230,22 +216,25 @@ export const overtime = pgTable("overtime", {
   approved_by: integer().references(() => usersTable.id),
 });
 
-export const employeePayrollComponents = pgTable(
-  "employee_payroll_components",
-  {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+// payroll
 
-    payrollComponentId: integer()
-      .notNull()
-      .references(() => payrollComponents.id),
+export const payrollType = pgEnum("payrollType", ["earning", "deduction"]);
 
-    amount: integer().notNull(),
+export const payrollComponents = pgTable("payroll_components", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
 
-    description: text(),
+  componentName: varchar("component_name", {
+    length: 100,
+  })
+    .notNull()
+    .unique(),
 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-);
+  description: text("description"),
+
+  type: payrollType().notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 export const employeePayrollAllocations = pgTable(
   "employee_payroll_allocations",
@@ -311,8 +300,6 @@ export const payrolls = pgTable(
       .notNull()
       .default("0"),
 
-    status: permissionStatus().notNull().default("pending"),
-    review_by: integer().references(() => usersTable.id),
   },
   (table) => [
     uniqueIndex("employee_payroll_period_unique").on(
@@ -322,21 +309,3 @@ export const payrolls = pgTable(
   ],
 );
 
-export const payrollDetails = pgTable("payroll_details", {
-  detailId: integer().primaryKey().generatedAlwaysAsIdentity(),
-
-  payrollId: integer("payroll_id")
-    .notNull()
-    .references(() => payrolls.payrollId),
-
-  componentId: integer("component_id")
-    .notNull()
-    .references(() => payrollComponents.id),
-
-  amount: numeric("amount", {
-    precision: 15,
-    scale: 2,
-  }).notNull(),
-
-  description: text(),
-});

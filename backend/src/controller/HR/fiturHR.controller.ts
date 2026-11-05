@@ -10,12 +10,17 @@ import {
   position,
   department,
   overtime,
-  payrolls,
-  payrollDetails,
+  employeePayrollAllocations,
   payrollComponents,
+  payrolls,
 } from "../../config/schema";
 import { Request, Response, NextFunction } from "express";
-import { hrApprovalPayrollSchema } from "../../validation/finance.validation";
+import {
+  payrollAllocationsSchema,
+  payrollComponentsSchema,
+  payrollSchema,
+  updatePayrollComponentsSchema,
+} from "../../validation/finance.validation";
 import {
   createVerificationSchema,
   reviewVerificationSchema,
@@ -1185,15 +1190,14 @@ export class HRfeatures {
     }
   };
 
-  // GET: HR melihat daftar request payroll yang menunggu approval
-  getPendingPayrollRequests = async (req: AuthRequest, res: Response) => {
+  addComponent = async (req: AuthRequest, res: Response) => {
     try {
       const user = req.user;
 
       if (!user?.userId) {
         return res.status(401).json({
           success: false,
-          message: "Sesi tidak valid, silakan login kembali",
+          message: "Sesi tidak valid",
         });
       }
 
@@ -1204,45 +1208,50 @@ export class HRfeatures {
         });
       }
 
-      const pendingPayrolls = await db
-        .select({
-          payrollId: payrolls.payrollId,
-          employeeId: payrolls.employeeId,
-          employeeName: sql<string>`CONCAT(${employes.firstName}, ' ', COALESCE(${employes.lastName}, ''))`,
-          payrollPeriod: payrolls.payrollPeriod,
-          totalEarnings: payrolls.totalEarnings,
-          totalDeductions: payrolls.totalDeductions,
-          netSalary: payrolls.netSalary,
-          status: payrolls.status,
-        })
-        .from(payrolls)
-        .innerJoin(employes, eq(payrolls.employeeId, employes.employeeId))
-        .where(eq(payrolls.status, "pending"))
-        .orderBy(asc(payrolls.payrollId));
+      const validation = payrollComponentsSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: validation.error.flatten().fieldErrors,
+        });
+      }
+
+      const data = validation.data;
+
+      const inserData = await db
+        .insert(payrollComponents)
+        .values(data)
+        .returning();
+      if (inserData.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "gagal menambahkan component",
+        });
+      }
 
       return res.status(200).json({
         success: true,
-        message: "Berhasil mengambil daftar request payroll yang menunggu approval",
-        data: pendingPayrolls,
+        message: "berhasil menambahkan component",
       });
     } catch (error) {
-      console.error("Error in getPendingPayrollRequests:", error);
+      console.log(error);
       return res.status(500).json({
         success: false,
-        message: "Terjadi kesalahan pada server",
+        message: "internal server error",
       });
     }
   };
 
-  // POST: HR melakukan approval / review terhadap request payroll dari Finance
-  approvePayrollRequest = async (req: AuthRequest, res: Response) => {
+  updateComponent = async (req: AuthRequest, res: Response) => {
     try {
       const user = req.user;
 
       if (!user?.userId) {
         return res.status(401).json({
           success: false,
-          message: "Sesi tidak valid, silakan login kembali",
+          message: "Sesi tidak valid",
         });
       }
 
@@ -1253,75 +1262,75 @@ export class HRfeatures {
         });
       }
 
-      // 1. Validasi input menggunakan Zod
-      const validated = hrApprovalPayrollSchema.parse(req.body);
-      const { payrollId, status } = validated;
+      const validation = updatePayrollComponentsSchema.safeParse(req.body);
 
-      // 2. Pastikan request payroll tersedia
-      const [existingPayroll] = await db
-        .select()
-        .from(payrolls)
-        .where(eq(payrolls.payrollId, payrollId))
-        .limit(1);
-
-      if (!existingPayroll) {
-        return res.status(404).json({
-          success: false,
-          message: "Request payroll tidak ditemukan",
-        });
-      }
-
-      // 3. Pastikan status request masih menunggu approval (pending)
-      // Cegah approval berulang jika statusnya sudah berubah
-      if (existingPayroll.status !== "pending") {
+      if (!validation.success) {
         return res.status(400).json({
           success: false,
-          message: `Request payroll sudah diproses sebelumnya dengan status '${existingPayroll.status}' dan tidak dapat diubah kembali`,
+          message: "Validasi gagal",
+          errors: validation.error.flatten().fieldErrors,
         });
       }
 
-      // 4. Update status dan review_by (diambil dari token user.userId, bukan body)
-      // Menggunakan where condition status = 'pending' untuk mencegah race condition
-      const [updatedPayroll] = await db
-        .update(payrolls)
-        .set({
-          status: status,
-          review_by: user.userId,
-        })
-        .where(
-          and(
-            eq(payrolls.payrollId, payrollId),
-            eq(payrolls.status, "pending"),
-          ),
-        )
+      const data = validation.data;
+
+      const updateData = await db
+        .update(payrollComponents)
+        .set(data)
+        .where(eq(payrollComponents.id, Number(req.params.id)))
         .returning();
 
-      if (!updatedPayroll) {
-        return res.status(409).json({
+      if (updateData.length === 0) {
+        return res.status(404).json({
           success: false,
-          message:
-            "Gagal memproses approval: Request payroll telah diproses secara bersamaan oleh sesi lain",
+          message: "Component tidak ditemukan",
         });
       }
 
       return res.status(200).json({
         success: true,
-        message: `Request payroll berhasil ${status === "accepted" ? "disetujui" : "ditolak"}`,
-        data: updatedPayroll,
+        message: "Berhasil memperbarui component",
+        data: updateData[0],
       });
-    } catch (error: any) {
-      if (error instanceof ZodError) {
-        return res.status(400).json({
+    } catch (error) {
+      console.log(error);
+      return res.status(500).json({
+        success: false,
+        message: "internal server error",
+      });
+    }
+  };
+
+  getAllPayrollComponents = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
           success: false,
-          message: "Validasi gagal",
-          errors: error.issues.map((issue) => ({
-            field: issue.path.join("."),
-            message: issue.message,
-          })),
+          message: "Sesi tidak valid",
         });
       }
 
-      console.error("Error in approvePayrollRequest:", error);
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      const components = await db
+        .select()
+        .from(payrollComponents)
+        .orderBy(asc(payrollComponents.id));
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil mengambil seluruh data komponen payroll",
+        data: components,
+      });
+    } catch (error) {
+      console.error("Error in getAllPayrollComponents:", error);
       return res.status(500).json({
         success: false,
         message: "Terjadi kesalahan pada server",

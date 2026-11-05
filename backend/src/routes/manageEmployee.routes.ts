@@ -19,8 +19,5 @@ router.get("/export-shift", authenticate, HRfeatures.exportExcelShift);
 router.post("/response/permission", authenticate, HRfeatures.HRresponsePermission);
 router.post("/response/overtime", authenticate, HRfeatures.HRresponseOvertime);
 
-router.get("/payroll/pending", authenticate, HRfeatures.getPendingPayrollRequests);
-router.post("/payroll/approval", authenticate, HRfeatures.approvePayrollRequest);
-router.post("/response/payroll", authenticate, HRfeatures.approvePayrollRequest);
 
 export default router;
