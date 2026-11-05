@@ -13,12 +13,14 @@ import {
   employeePayrollAllocations,
   payrollComponents,
   payrolls,
+  payrollDetails,
 } from "../../config/schema";
 import { Request, Response, NextFunction } from "express";
 import {
   payrollAllocationsSchema,
   payrollComponentsSchema,
   payrollSchema,
+  updatePayrollAllocationsSchema,
   updatePayrollComponentsSchema,
 } from "../../validation/finance.validation";
 import {
@@ -41,6 +43,7 @@ import { bot } from "../../config/telegramBot";
 import { AuthRequest } from "../../middleware/users.middleware";
 import ExcelJS from "exceljs";
 import { employeePermission } from "../../config/schema";
+import { fromCents, toCents } from "../../lib/utils";
 
 export class HRfeatures {
   // Generate 6-digit numeric token
@@ -1337,6 +1340,180 @@ export class HRfeatures {
       });
     }
   };
-}
 
+  payrollAlocation = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      const validation = payrollAllocationsSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: validation.error.flatten().fieldErrors,
+        });
+      }
+
+      const data = validation.data;
+      const [allocationData] = await db
+        .insert(employeePayrollAllocations)
+        .values({
+          ...data,
+          amount: data.amount.toString(),
+        })
+        .onConflictDoUpdate({
+          target: [
+            employeePayrollAllocations.employeeId,
+            employeePayrollAllocations.componentId,
+          ],
+          set: {
+            amount: data.amount.toString(),
+          },
+        })
+        .returning();
+
+      return res.status(200).json({
+        success: true,
+        message: "Alokasi payroll berhasil ditambahkan atau diperbarui",
+        data: allocationData,
+      });
+    } catch (error) {
+      console.error("Error in getAllPayrollComponents:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
+
+  getAllPayrollAllocations = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      const allocationData = await db
+        .select({
+          allocationId: employeePayrollAllocations.allocationId,
+          employeeId: employeePayrollAllocations.employeeId,
+          employeeName: employes.firstName,
+          componentId: employeePayrollAllocations.componentId,
+          componentName: payrollComponents.componentName,
+          type: payrollComponents.type,
+          amount: employeePayrollAllocations.amount,
+        })
+        .from(employeePayrollAllocations)
+        .leftJoin(
+          employes,
+          eq(employeePayrollAllocations.employeeId, employes.employeeId),
+        )
+        .leftJoin(
+          payrollComponents,
+          eq(employeePayrollAllocations.componentId, payrollComponents.id),
+        );
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil mengambil data allocation payroll",
+        total: allocationData.length,
+        data: allocationData,
+      });
+    } catch (error) {
+      console.error("Error in getAllPayrollAllocations:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
+
+  getPayrollAllocationByEmployee = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      const employeeId = String(req.params.employeeId);
+
+      if (!employeeId || employeeId.length > 30) {
+        return res.status(400).json({
+          success: false,
+          message: "Employee ID tidak valid",
+        });
+      }
+
+      const allocationData = await db
+        .select({
+          allocationId: employeePayrollAllocations.allocationId,
+          employeeId: employeePayrollAllocations.employeeId,
+          componentId: employeePayrollAllocations.componentId,
+          componentName: payrollComponents.componentName,
+          type: payrollComponents.type,
+          amount: employeePayrollAllocations.amount,
+        })
+        .from(employeePayrollAllocations)
+        .leftJoin(
+          payrollComponents,
+          eq(employeePayrollAllocations.componentId, payrollComponents.id),
+        )
+        .where(eq(employeePayrollAllocations.employeeId, employeeId));
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil mengambil allocation karyawan",
+        total: allocationData.length,
+        data: allocationData,
+      });
+    } catch (error) {
+      console.error("Error in getPayrollAllocationByEmployee:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
+
+ 
+}
 export default new HRfeatures();

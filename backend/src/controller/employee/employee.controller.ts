@@ -13,6 +13,7 @@ import {
   payrolls,
   payrollComponents,
   employeePayrollAllocations,
+  payrollDetails,
 } from "../../config/schema";
 import { overtimeSchema } from "../../validation/overtime.validation";
 import { AuthRequest } from "../../middleware/users.middleware";
@@ -433,170 +434,101 @@ export class EmployeeFeatures {
     }
   };
 
-  // getMyPayslips = async (req: AuthRequest, res: Response) => {
-  //   try {
-  //     // 1. Validasi JWT
-  //     const user = req.user;
+  mySlip = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
 
-  //     if (!user?.userId) {
-  //       return res.status(401).json({
-  //         success: false,
-  //         message: "Token tidak valid atau sesi telah berakhir",
-  //       });
-  //     }
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
 
-  //     // 2. Validasi periode
-  //     const period = req.query.period;
+      console.log(user.userId);
+      const [userAccount] = await db
+        .select()
+        .from(employes)
+        .where(eq(employes.userId, user.userId))
+        .limit(1);
 
-  //     if (
-  //       period !== undefined &&
-  //       (typeof period !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(period))
-  //     ) {
-  //       return res.status(400).json({
-  //         success: false,
-  //         message: "Format periode harus YYYY-MM",
-  //       });
-  //     }
+      console.log(userAccount);
 
-  //     // 3. Ambil employee berdasarkan userId JWT
-  //     const [employee] = await db
-  //       .select({
-  //         employeeId: employes.employeeId,
-  //         firstName: employes.firstName,
-  //         lastName: employes.lastName,
-  //         nip: employes.nip,
-  //       })
-  //       .from(employes)
-  //       .where(eq(employes.userId, user.userId))
-  //       .limit(1);
+      // Ambil payroll berdasarkan ID
+      const [payrollData] = await db
+        .select({
+          payrollId: payrolls.payrollId,
+          employeeId: payrolls.employeeId,
+          payrollPeriod: payrolls.payrollPeriod,
+          totalEarnings: payrolls.totalEarnings,
+          totalDeductions: payrolls.totalDeductions,
+          netSalary: payrolls.netSalary,
+          userId: employes.userId,
+        })
+        .from(payrolls)
+        .innerJoin(employes, eq(payrolls.employeeId, employes.employeeId))
+        .where(eq(payrolls.employeeId, userAccount.employeeId))
+        .limit(1);
 
-  //     if (!employee) {
-  //       return res.status(404).json({
-  //         success: false,
-  //         message: "Data karyawan tidak ditemukan",
-  //       });
-  //     }
+      if (!payrollData) {
+        return res.status(404).json({
+          success: false,
+          message: "Data payroll tidak ditemukan",
+        });
+      }
 
-  //     // 4. Kondisi payroll
-  //     const conditions = [
-  //       eq(payrolls.employeeId, employee.employeeId),
-  //       eq(payrolls.status, "accepted"),
-  //     ];
+      // HR dan Finance boleh melihat semua payroll.
+      // Karyawan hanya boleh melihat payroll miliknya sendiri.
+      if (
+        user.role !== "HR" &&
+        user.role !== "Finance" &&
+        payrollData.userId !== user.userId
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan melihat slip gaji ini",
+        });
+      }
 
-  //     if (typeof period === "string") {
-  //       conditions.push(eq(payrolls.payrollPeriod, period));
-  //     }
+      // Ambil detail komponen payroll
+      const details = await db
+        .select({
+          detailId: payrollDetails.detailId,
+          componentId: payrollDetails.componentId,
+          componentName: payrollDetails.componentName,
+          type: payrollDetails.type,
+          amount: payrollDetails.amount,
+        })
+        .from(payrollDetails)
+        .where(eq(payrollDetails.payrollId, payrollData.payrollId));
 
-  //     // 5. JOIN payroll + alokasi + komponen
-  //     const payrollData = await db
-  //       .select({
-  //         payrollId: payrolls.payrollId,
-  //         payrollPeriod: payrolls.payrollPeriod,
-  //         totalEarnings: payrolls.totalEarnings,
-  //         totalDeductions: payrolls.totalDeductions,
-  //         netSalary: payrolls.netSalary,
-  //         status: payrolls.status,
-  //         reviewBy: payrolls.review_by,
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil mengambil slip gaji",
+        data: {
+          payroll: {
+            payrollId: payrollData.payrollId,
+            employeeId: payrollData.employeeId,
+            payrollPeriod: payrollData.payrollPeriod,
+            totalEarnings: payrollData.totalEarnings,
+            totalDeductions: payrollData.totalDeductions,
+            netSalary: payrollData.netSalary,
+          },
+          details: {
+            earnings: details.filter((item) => item.type === "earning"),
+            deductions: details.filter((item) => item.type === "deduction"),
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error in getPayrollDetailsById:", error);
 
-  //         allocationId: employeePayrollAllocations.allocationId,
-  //         componentId: payrollComponents.id,
-  //         componentName: payrollComponents.componentName,
-  //         componentDescription: payrollComponents.description,
-  //         allocationAmount: employeePayrollAllocations.amount,
-  //       })
-  //       .from(payrolls)
-  //       .leftJoin(
-  //         employeePayrollAllocations,
-  //         eq(payrolls.employeeId, employeePayrollAllocations.employeeId),
-  //       )
-  //       .leftJoin(
-  //         payrollComponents,
-  //         eq(employeePayrollAllocations.componentId, payrollComponents.id),
-  //       )
-  //       .where(and(...conditions))
-  //       .orderBy(desc(payrolls.payrollPeriod));
-
-  //     // 6. Validasi data payroll
-  //     if (payrollData.length === 0) {
-  //       return res.status(404).json({
-  //         success: false,
-  //         message:
-  //           typeof period === "string"
-  //             ? `Slip gaji periode ${period} tidak ditemukan`
-  //             : "Belum ada slip gaji yang disetujui",
-  //       });
-  //     }
-
-  //     // 7. Kelompokkan hasil berdasarkan payrollId
-  //     const groupedPayroll = new Map<
-  //       number,
-  //       {
-  //         payrollId: number;
-  //         payrollPeriod: string;
-  //         totalEarnings: string;
-  //         totalDeductions: string;
-  //         netSalary: string;
-  //         status: string;
-  //         reviewBy: number | null;
-  //         components: {
-  //           allocationId: number;
-  //           componentId: number;
-  //           componentName: string;
-  //           description: string | null;
-  //           amount: string;
-  //         }[];
-  //       }
-  //     >();
-
-  //     for (const row of payrollData) {
-  //       if (!groupedPayroll.has(row.payrollId)) {
-  //         groupedPayroll.set(row.payrollId, {
-  //           payrollId: row.payrollId,
-  //           payrollPeriod: row.payrollPeriod,
-  //           totalEarnings: row.totalEarnings,
-  //           totalDeductions: row.totalDeductions,
-  //           netSalary: row.netSalary,
-  //           status: row.status,
-  //           reviewBy: row.reviewBy,
-  //           components: [],
-  //         });
-  //       }
-
-  //       if (
-  //         row.allocationId !== null &&
-  //         row.componentId !== null &&
-  //         row.componentName !== null &&
-  //         row.allocationAmount !== null
-  //       ) {
-  //         groupedPayroll.get(row.payrollId)!.components.push({
-  //           allocationId: row.allocationId,
-  //           componentId: row.componentId,
-  //           componentName: row.componentName,
-  //           description: row.componentDescription,
-  //           amount: row.allocationAmount,
-  //         });
-  //       }
-  //     }
-
-  //     // 8. Response
-  //     return res.status(200).json({
-  //       success: true,
-  //       message: "Slip gaji berhasil ditemukan",
-  //       data: {
-  //         employee,
-  //         totalSlips: groupedPayroll.size,
-  //         payslips: Array.from(groupedPayroll.values()),
-  //       },
-  //     });
-  //   } catch (error) {
-  //     console.error("Get My Payslips Error:", error);
-
-  //     return res.status(500).json({
-  //       success: false,
-  //       message: "Terjadi kesalahan saat mengambil slip gaji",
-  //     });
-  //   }
-  // };
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
 }
 
 export default new EmployeeFeatures();

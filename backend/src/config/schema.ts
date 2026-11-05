@@ -299,7 +299,6 @@ export const payrolls = pgTable(
     })
       .notNull()
       .default("0"),
-
   },
   (table) => [
     uniqueIndex("employee_payroll_period_unique").on(
@@ -309,3 +308,25 @@ export const payrolls = pgTable(
   ],
 );
 
+export const payrollDetails = pgTable("payroll_details", {
+  detailId: integer().primaryKey().generatedAlwaysAsIdentity(),
+
+  payrollId: integer()
+    .notNull()
+    .references(() => payrolls.payrollId),
+
+  componentId: integer()
+    .notNull()
+    .references(() => payrollComponents.id),
+
+  componentName: varchar("component_name", {
+    length: 100,
+  }).notNull(),
+
+  type: payrollType().notNull(),
+
+  amount: numeric("amount", {
+    precision: 15,
+    scale: 2,
+  }).notNull(),
+});
