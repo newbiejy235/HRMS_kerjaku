@@ -15,6 +15,10 @@ bot.onText(/^\/start$/, async (msg) => {
 
   await bot.sendMessage(
     chatId,
-    "Bot KerjaKu aktif! Chat ID berhasil diterima.",
+    `
+    Bot KerjaKu aktif! Chat ID berhasil diterima.
+    token : ${chatId}
+    userId : ${telegramUserId}
+    `,
   );
 });

@@ -55,6 +55,7 @@ import {
   overtimeSchema,
   overtimeHRSchema,
 } from "../../validation/overtime.validation";
+import TelegramService from "../../services/notification.service";
 
 export class HRfeatures {
   // Generate 6-digit numeric token
@@ -548,6 +549,38 @@ export class HRfeatures {
           id_employee,
         })
         .returning();
+
+      const [data] = await db
+        .select()
+        .from(employes)
+        .where(eq(employes.employeeId, id_employee));
+
+      console.log(data);
+      console.log(data.telegramChatId);
+      
+
+      if (!data.telegramChatId) {
+        return res.status(200).json({
+          success: true,
+          message: "alert, karyawan belum aktifin bot telegram",
+        });
+      }
+
+      const message = `
+        <b> Shift hari ini dan yang akan datang </b>
+
+        Haloo ${data.firstName} 👋
+
+        hari ini kamu kebagian shift di jam ${shiftTime} pada tanggal ${shiftDate}
+
+        untuk perkiraan pergantian shift yang akan datang : 
+        📆 tanggal ${upcomingShiftDate}
+        ⏱️ jam ${upcomingShiftTime} 
+
+        <b> Jangan sampai terlambat ya, ditunggu kehadiran nya 😁 </b>
+        
+        `;
+      await TelegramService.sendMessage(data.telegramChatId, message);
 
       return res.status(201).json({
         success: true,
