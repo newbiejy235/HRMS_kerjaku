@@ -355,3 +355,47 @@ export const payrollDetails = pgTable("payroll_details", {
     scale: 2,
   }).notNull(),
 });
+
+export const employeeAttendanceStatistics = pgTable(
+  "employee_attendance_statistics",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+
+    employeeId: varchar("employee_id", { length: 30 })
+      .notNull()
+      .references(() => employes.employeeId),
+
+    month: integer("month").notNull(),
+    year: integer("year").notNull(),
+
+    totalEffectiveDays: integer("total_effective_days").notNull().default(0),
+
+    totalPresent: integer("total_present").notNull().default(0),
+
+    totalAlpha: integer("total_alpha").notNull().default(0),
+
+    totalPermission: integer("total_permission").notNull().default(0),
+
+    totalOvertime: integer("total_overtime").notNull().default(0),
+
+    totalLate: integer("total_late").notNull().default(0),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("employee_attendance_statistics_unique").on(
+      table.employeeId,
+      table.month,
+      table.year,
+    ),
+  ],
+);
+
+
