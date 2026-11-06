@@ -101,6 +101,7 @@ export class EmployeeFeatures {
       });
     }
   };
+  
 }
 
 export default new EmployeeFeatures();
