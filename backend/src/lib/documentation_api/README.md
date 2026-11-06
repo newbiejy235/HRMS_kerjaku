@@ -13,8 +13,8 @@ File tambahan:
 
 ## Ringkasan
 
-- Total endpoint ditemukan: 36
-- Total endpoint didokumentasikan: 36
+- Total endpoint ditemukan: 47
+- Total endpoint didokumentasikan: 47
 - OpenAPI version: 3.0.3
 - Validasi OpenAPI: VALID (`@apidevtools/swagger-parser`)
 
@@ -28,6 +28,9 @@ Modul yang didokumentasikan:
 - Finance
 - Report
 - Activation
+- Reimbursement
+- Attendance Location
+- Attendance Statistics
 
 ## Dependency yang Dibutuhkan
 

@@ -55,4 +55,5 @@ app.get("/tes", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Documentation api running on http://localhost:${PORT}/api-docs`);
 });

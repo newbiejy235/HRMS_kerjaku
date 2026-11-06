@@ -27,6 +27,9 @@ const swaggerDocument: any = {
     { name: "Finance" },
     { name: "Report" },
     { name: "Activation" },
+    { name: "Reimbursement" },
+    { name: "Attendance Location" },
+    { name: "Attendance Statistics" },
   ],
   components: {
     securitySchemes: {
@@ -1070,4 +1073,319 @@ swaggerDocument.paths["/report-analyst/"] = {
     },
   },
 };
+swaggerDocument.paths["/manage/create/overtime"] = {
+  post: {
+    tags: ["HR Management"],
+    summary: "Buat lembur oleh HR",
+    description: "HR membuat pengajuan lembur yang langsung disetujui untuk karyawan tertentu.",
+    operationId: "hrCreateOvertime",
+    security: [{ BearerAuth: [] }],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: { $ref: "#/components/schemas/HROvertimeRequest" } } },
+    },
+    responses: {
+      "201": {
+        description: "Pengajuan lembur berhasil dibuat",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                success: { type: "boolean", example: true },
+                message: { type: "string" },
+                data: { type: "object", additionalProperties: true },
+              },
+            },
+          },
+        },
+      },
+      "400": { description: "Validasi gagal", content: { "application/json": { schema: { $ref: "#/components/schemas/ValidationError" } } } },
+      "401": { description: "Sesi tidak valid atau bukan role HR", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "500": { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+    },
+  },
+};
+
+swaggerDocument.paths["/statistic/attendance-statistics/generate"] = {
+  post: {
+    tags: ["Attendance Statistics"],
+    summary: "Generate statistik kehadiran",
+    description: "HR generate statistik kehadiran untuk bulan dan tahun tertentu.",
+    operationId: "generateAttendanceStatistics",
+    security: [{ BearerAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            required: ["month", "year"],
+            properties: {
+              month: { type: "integer", minimum: 1, maximum: 12 },
+              year: { type: "integer", minimum: 2000 },
+            },
+          },
+        },
+      },
+    },
+    responses: {
+      "200": {
+        description: "Statistik kehadiran berhasil digenerate",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                success: { type: "boolean", example: true },
+                message: { type: "string" },
+                period: { type: "object", additionalProperties: true },
+                totalEmployees: { type: "integer" },
+                data: { type: "array", items: { type: "object", additionalProperties: true } },
+              },
+            },
+          },
+        },
+      },
+      "400": { description: "Bulan/tahun tidak valid atau periode mendatang", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "403": { description: "Akses hanya untuk HR", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "500": { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+    },
+  },
+};
+
+swaggerDocument.paths["/statistic/attendance-statistics"] = {
+  get: {
+    tags: ["Attendance Statistics"],
+    summary: "Ambil statistik kehadiran",
+    description: "HR mengambil seluruh statistik kehadiran berdasarkan bulan dan tahun.",
+    operationId: "getAttendanceStatistics",
+    security: [{ BearerAuth: [] }],
+    parameters: [
+      { name: "month", in: "query", required: true, schema: { type: "integer", minimum: 1, maximum: 12 } },
+      { name: "year", in: "query", required: true, schema: { type: "integer", minimum: 2000 } },
+    ],
+    responses: {
+      "200": {
+        description: "Statistik kehadiran berhasil diambil",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                success: { type: "boolean", example: true },
+                message: { type: "string" },
+                total: { type: "integer" },
+                data: { type: "array", items: { type: "object", additionalProperties: true } },
+              },
+            },
+          },
+        },
+      },
+      "400": { description: "Bulan atau tahun tidak valid", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "403": { description: "Akses hanya untuk HR", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "500": { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+    },
+  },
+};
+
+swaggerDocument.paths["/statistic/attendance-statistics/{employeeId}"] = {
+  get: {
+    tags: ["Attendance Statistics"],
+    summary: "Ambil statistik kehadiran karyawan",
+    description: "HR mengambil statistik kehadiran untuk satu karyawan berdasarkan employeeId, bulan, dan tahun.",
+    operationId: "getEmployeeAttendanceStatistics",
+    security: [{ BearerAuth: [] }],
+    parameters: [
+      { name: "employeeId", in: "path", required: true, schema: { type: "string", minLength: 1, maxLength: 30 } },
+      { name: "month", in: "query", required: true, schema: { type: "integer", minimum: 1, maximum: 12 } },
+      { name: "year", in: "query", required: true, schema: { type: "integer", minimum: 2000 } },
+    ],
+    responses: {
+      "200": {
+        description: "Statistik karyawan berhasil diambil",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                success: { type: "boolean", example: true },
+                message: { type: "string" },
+                data: { type: "object", additionalProperties: true },
+              },
+            },
+          },
+        },
+      },
+      "400": { description: "Parameter tidak valid", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "403": { description: "Akses hanya untuk HR", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "404": { description: "Statistik karyawan tidak ditemukan", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "500": { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+    },
+  },
+};
+
+swaggerDocument.paths["/employee/loation/"] = {
+  post: {
+    tags: ["Attendance Location"],
+    summary: "Buat lokasi absensi",
+    description: "HR membuat lokasi absensi perusahaan. Hanya satu lokasi yang dapat tersedia.",
+    operationId: "createAttendanceLocation",
+    security: [{ BearerAuth: [] }],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: { $ref: "#/components/schemas/AttendanceLocationRequest" } } },
+    },
+    responses: {
+      "201": { description: "Lokasi absensi berhasil ditambahkan", content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean", example: true }, message: { type: "string" }, data: { type: "object", additionalProperties: true } } } } } },
+      "400": { description: "Data lokasi tidak valid", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "401": { description: "Sesi tidak valid", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "403": { description: "Hanya HR", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "409": { description: "Lokasi perusahaan sudah tersedia", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "500": { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+    },
+  },
+  get: {
+    tags: ["Attendance Location"],
+    summary: "Ambil lokasi absensi",
+    description: "Mengambil lokasi absensi perusahaan yang tersimpan.",
+    operationId: "getAttendanceLocation",
+    security: [{ BearerAuth: [] }],
+    responses: {
+      "200": { description: "Berhasil mengambil lokasi absensi", content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean", example: true }, message: { type: "string" }, data: { type: "object", additionalProperties: true } } } } } },
+      "401": { description: "Sesi tidak valid", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "404": { description: "Lokasi absensi belum dikonfigurasi", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "500": { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+    },
+  },
+};
+
+swaggerDocument.paths["/employee/loation/{id}"] = {
+  put: {
+    tags: ["Attendance Location"],
+    summary: "Update lokasi absensi",
+    description: "HR memperbarui data lokasi absensi perusahaan.",
+    operationId: "updateAttendanceLocation",
+    security: [{ BearerAuth: [] }],
+    parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer", minimum: 1 } }],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateAttendanceLocationRequest" } } },
+    },
+    responses: {
+      "200": { description: "Lokasi absensi berhasil diperbarui", content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean", example: true }, message: { type: "string" }, data: { type: "object", additionalProperties: true } } } } } },
+      "400": { description: "ID lokasi tidak valid atau tidak ada data yang dikirim", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "401": { description: "Sesi tidak valid", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "403": { description: "Hanya HR", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "404": { description: "Lokasi absensi tidak ditemukan", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "500": { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+    },
+  },
+  patch: {
+    tags: ["Attendance Location"],
+    summary: "Update status lokasi absensi",
+    description: "HR mengubah status aktif lokasi absensi.",
+    operationId: "updateAttendanceLocationStatus",
+    security: [{ BearerAuth: [] }],
+    parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer", minimum: 1 } }],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: { $ref: "#/components/schemas/AttendanceLocationStatusRequest" } } },
+    },
+    responses: {
+      "200": { description: "Status lokasi berhasil diperbarui", content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean", example: true }, message: { type: "string" }, data: { type: "object", additionalProperties: true } } } } } },
+      "400": { description: "ID lokasi tidak valid atau status tidak valid", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "401": { description: "Sesi tidak valid", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "403": { description: "Hanya HR", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "404": { description: "Lokasi absensi tidak ditemukan", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "500": { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+    },
+  },
+};
+
+swaggerDocument.paths["/reimbursements/"] = {
+  post: {
+    tags: ["Reimbursement"],
+    summary: "Ajukan reimburse",
+    description: "Karyawan mengajukan reimburse dengan upload foto bukti.",
+    operationId: "createReimbursement",
+    security: [{ BearerAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        "multipart/form-data": {
+          schema: {
+            type: "object",
+            required: ["name", "amount", "expenseDate", "receipt"],
+            properties: {
+              name: { type: "string" },
+              description: { type: "string" },
+              amount: { type: "number", minimum: 0.01 },
+              expenseDate: { type: "string", format: "date" },
+              receipt: { type: "string", format: "binary" },
+            },
+          },
+        },
+      },
+    },
+    responses: {
+      "201": { description: "Pengajuan reimburse berhasil dibuat", content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean", example: true }, message: { type: "string" }, data: { type: "object", additionalProperties: true } } } } } },
+      "400": { description: "Data tidak valid atau foto bukti wajib diunggah", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "401": { description: "Sesi tidak valid", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "500": { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+    },
+  },
+  get: {
+    tags: ["Reimbursement"],
+    summary: "Daftar reimburse milik karyawan",
+    description: "Karyawan melihat daftar reimburse miliknya.",
+    operationId: "getReimbursements",
+    security: [{ BearerAuth: [] }],
+    responses: {
+      "200": {
+        description: "Berhasil mengambil data reimburse",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                success: { type: "boolean", example: true },
+                message: { type: "string" },
+                total: { type: "integer" },
+                data: { type: "array", items: { type: "object", additionalProperties: true } },
+              },
+            },
+          },
+        },
+      },
+      "401": { description: "Sesi tidak valid", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "500": { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+    },
+  },
+};
+
+swaggerDocument.paths["/reimbursements/{id}/review"] = {
+  patch: {
+    tags: ["Reimbursement"],
+    summary: "Review reimburse oleh HR",
+    description: "HR menyetujui atau menolak reimburse. Jika ditolak, alasan penolakan wajib diisi.",
+    operationId: "reviewReimbursement",
+    security: [{ BearerAuth: [] }],
+    parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer", minimum: 1 } }],
+    requestBody: {
+      required: true,
+      content: { "application/json": { schema: { $ref: "#/components/schemas/ReimbursementReviewRequest" } } },
+    },
+    responses: {
+      "200": { description: "Reimburse berhasil direview", content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean", example: true }, message: { type: "string" }, data: { type: "object", additionalProperties: true } } } } } },
+      "400": { description: "ID tidak valid atau status tidak valid", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "401": { description: "Sesi tidak valid", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "403": { description: "Hanya HR", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "404": { description: "Data reimburse tidak ditemukan", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "409": { description: "Reimburse sudah direview", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+      "500": { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+    },
+  },
+};
+
 export default swaggerDocument;

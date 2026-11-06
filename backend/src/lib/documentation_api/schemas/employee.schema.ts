@@ -33,15 +33,18 @@ export const employeeSchemas: Record<string, any> = {
     properties: {
       normal_time_in: { type: "string", pattern: "^([01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d$" },
       normal_time_out: { type: "string", pattern: "^([01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d$" },
+      tolerance_time: { type: "string", pattern: "^([01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d$" },
     },
   },
   CreateShiftScheduleRequest: {
     type: "object",
-    required: ["shiftDate", "shiftTime", "id_employee"],
+    required: ["shiftDate", "shiftTime", "upcomingShiftDate", "upcomingShiftTime", "id_employee"],
     additionalProperties: false,
     properties: {
       shiftDate: { type: "string", format: "date" },
       shiftTime: { type: "integer", minimum: 1 },
+      upcomingShiftDate: { type: "string", format: "date" },
+      upcomingShiftTime: { type: "integer", minimum: 1 },
       employeeLocate: { type: "string", maxLength: 1000, nullable: true },
       id_employee: { type: "string", minLength: 1, maxLength: 30 },
     },
@@ -95,6 +98,50 @@ export const employeeSchemas: Record<string, any> = {
     properties: {
       status: { type: "string", enum: ["pending", "rejected", "accepted"] },
       id_overtime: { type: "integer" },
+    },
+  },
+  HROvertimeRequest: {
+    type: "object",
+    required: ["id_employee", "overtimeDate", "overtimeTotal"],
+    properties: {
+      id_employee: { type: "string", minLength: 1, maxLength: 30 },
+      overtimeDate: { type: "string", format: "date-time" },
+      overtimeTotal: { type: "integer", minimum: 1 },
+      description: { type: "string" },
+    },
+  },
+  AttendanceLocationRequest: {
+    type: "object",
+    required: ["locationName", "latitude", "longitude", "radiusMeter"],
+    properties: {
+      locationName: { type: "string", minLength: 1 },
+      latitude: { type: "number", minimum: -90, maximum: 90 },
+      longitude: { type: "number", minimum: -180, maximum: 180 },
+      radiusMeter: { type: "integer", minimum: 1 },
+    },
+  },
+  UpdateAttendanceLocationRequest: {
+    type: "object",
+    properties: {
+      locationName: { type: "string", minLength: 1 },
+      latitude: { type: "number", minimum: -90, maximum: 90 },
+      longitude: { type: "number", minimum: -180, maximum: 180 },
+      radiusMeter: { type: "integer", minimum: 1 },
+    },
+  },
+  AttendanceLocationStatusRequest: {
+    type: "object",
+    required: ["isActive"],
+    properties: {
+      isActive: { type: "boolean" },
+    },
+  },
+  ReimbursementReviewRequest: {
+    type: "object",
+    required: ["status"],
+    properties: {
+      status: { type: "string", enum: ["approved", "rejected"] },
+      rejectionReason: { type: "string" },
     },
   },
 };
