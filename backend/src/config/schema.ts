@@ -9,6 +9,9 @@ import {
   time,
   numeric,
   uniqueIndex,
+  serial,
+  doublePrecision,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("userRole", ["Karyawan", "Finance", "HR"]);
@@ -398,4 +401,29 @@ export const employeeAttendanceStatistics = pgTable(
   ],
 );
 
+export const attendanceLocation = pgTable(
+  "attendance_location",
+  {
+    id: serial("id").primaryKey(),
+
+    locationName: varchar("location_name", {
+      length: 100,
+    }).notNull(),
+
+    latitude: doublePrecision("latitude").notNull(),
+    longitude: doublePrecision("longitude").notNull(),
+
+    radiusMeter: integer("radius_meter")
+      .notNull()
+      .default(100),
+
+    isActive: boolean("is_active")
+      .notNull()
+      .default(true),
+
+    createdAt: timestamp("created_at")
+      .defaultNow()
+      .notNull(),
+  },
+);
 
