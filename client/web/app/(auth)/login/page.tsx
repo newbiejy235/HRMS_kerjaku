@@ -18,12 +18,7 @@ type KartuPanel = {
 };
 
 const jalurPutar = [
-  [0, 0],
-  [0, 1],
-  [0, 2],
-  [1, 2],
-  [1, 1],
-  [1, 0],
+  [0, 0], [0, 1], [0, 2], [1, 2], [1, 1], [1, 0],
 ] as const;
 
 const kartuPanel: KartuPanel[] = [
@@ -34,7 +29,7 @@ const kartuPanel: KartuPanel[] = [
   { jenis: "kaca" },
   { jenis: "terang", label: "Terlambat", nilai: "5 karyawan", ket: "Toleransi 10 menit", titik: "atas" },
 ];
-
+  
 const LAPISAN: Record<Jenis, number> = { terang: 1, kaca: 2, tegas: 3 };
 const INTERVAL_MS = 3000;
 const JARAK = "calc(var(--s) + var(--g))";
@@ -48,13 +43,31 @@ function validasi(field: Field, nilai: string) {
   return "";
 }
 
-async function simulasiLogin(email: string): Promise<{ tujuan?: string; galat?: string }> {
-  await new Promise((r) => setTimeout(r, 900));
-  const e = email.toLowerCase();
-  if (e.includes("hr")) return { tujuan: "/hr/dashboard" };
-  if (e.includes("finance")) return { tujuan: "/finance/dashboard" };
-  if (e.includes("employee")) return { galat: "Akun tidak memiliki akses ke aplikasi web" };
-  return { galat: "Email atau kata sandi salah" };
+async function prosesLogin(email: string, password: string): Promise<{ tujuan?: string; galat?: string }> {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) return { galat: data.message || "Email atau kata sandi salah" };
+
+    if (data.userData?.token) {
+      localStorage.setItem("token", data.userData.token);
+      localStorage.setItem("role", data.userData.role);
+    }
+
+    const role = data.userData?.role;
+    if (role === "HR") return { tujuan: "/hr/dashboard" };
+    if (role === "Finance") return { tujuan: "/finance/dashboard" };
+
+    return { galat: "Akun tidak memiliki akses ke aplikasi web." };
+  } catch (error) {
+    return { galat: "Tidak dapat terhubung ke server. Pastikan backend berjalan." };
+  }
 }
 
 function Kartu({ data, indeks, langkah }: { data: KartuPanel; indeks: number; langkah: number }) {
@@ -160,12 +173,14 @@ export default function LoginPage() {
 
     setMemproses(true);
     setGalatServer("");
-    const hasil = await simulasiLogin(nilai.email);
+
+    const hasil = await prosesLogin(nilai.email, nilai.password);
+
     if (hasil.tujuan) {
       router.push(hasil.tujuan);
       return;
     }
-    setGalatServer(hasil.galat ?? "Tidak dapat terhubung ke server. Coba lagi.");
+    setGalatServer(hasil.galat ?? "Terjadi kesalahan.");
     setMemproses(false);
   };
 
@@ -179,14 +194,12 @@ export default function LoginPage() {
   return (
     <main className="relative flex min-h-dvh items-center justify-center bg-emerald-50 p-5 lg:block lg:overflow-hidden">
       <div className="relative lg:h-[calc(100dvh-40px)] w-full">
-        
         <section
           aria-hidden="true"
           className="relative hidden h-full lg:w-[64.3%] overflow-hidden rounded-2xl bg-emerald-950 [container-type:size] lg:block"
         >
           <Image src="/images/image.png" alt="" fill priority sizes="(min-width: 1024px) 64vw, 0px" className="object-cover" />
           <div className="absolute inset-0 bg-emerald-950/60" />
-
           <div
             className="absolute inset-0 flex items-center justify-center pr-14"
             style={{
@@ -203,7 +216,6 @@ export default function LoginPage() {
         </section>
 
         <section className="mx-auto w-full max-w-[520px] rounded-xl border border-emerald-600/60 bg-white p-12 shadow-[0_12px_32px_rgba(2,44,34,0.10)] lg:absolute lg:left-[64.3%] lg:-translate-x-[56px] lg:top-1/2 lg:mx-0 lg:-translate-y-1/2">
-          
           <div className="mb-10 flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-700 text-lg font-bold text-white">
               K
@@ -235,9 +247,7 @@ export default function LoginPage() {
                 className={kelasInput("email")}
               />
               {tampilGalat("email") && (
-                <p id="email-galat" className="mt-2 text-sm text-rose-600">
-                  {galat.email}
-                </p>
+                <p id="email-galat" className="mt-2 text-sm text-rose-600">{galat.email}</p>
               )}
             </div>
 
@@ -269,9 +279,7 @@ export default function LoginPage() {
                 </button>
               </div>
               {tampilGalat("password") && (
-                <p id="password-galat" className="mt-2 text-sm text-rose-600">
-                  {galat.password}
-                </p>
+                <p id="password-galat" className="mt-2 text-sm text-rose-600">{galat.password}</p>
               )}
               {capsLock && <p className="mt-2 text-sm text-amber-700">Caps Lock aktif</p>}
             </div>
@@ -290,10 +298,8 @@ export default function LoginPage() {
               {memproses ? "Memproses..." : "Masuk"}
             </button>
           </form>
-
         </section>
       </div>
-
       <p className="absolute bottom-5 right-8 hidden text-xs text-slate-500 lg:block">KerjaKu v1.0 &middot; 2026</p>
     </main>
   );

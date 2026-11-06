@@ -1,12 +1,28 @@
 import { db } from "../../config/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql, asc } from "drizzle-orm";
 import {
   passwordResetRequests,
   usersTable,
   shiftSchedule,
   employeeAttendance,
+  cities,
+  provinces,
+  position,
+  department,
+  overtime,
+  employeePayrollAllocations,
+  payrollComponents,
+  payrolls,
+  payrollDetails,
 } from "../../config/schema";
 import { Request, Response, NextFunction } from "express";
+import {
+  payrollAllocationsSchema,
+  payrollComponentsSchema,
+  payrollSchema,
+  updatePayrollAllocationsSchema,
+  updatePayrollComponentsSchema,
+} from "../../validation/finance.validation";
 import {
   createVerificationSchema,
   reviewVerificationSchema,
@@ -25,6 +41,9 @@ import crypto from "crypto";
 import { employes } from "../../config/schema";
 import { bot } from "../../config/telegramBot";
 import { AuthRequest } from "../../middleware/users.middleware";
+import ExcelJS from "exceljs";
+import { employeePermission } from "../../config/schema";
+import { fromCents, toCents } from "../../lib/utils";
 
 export class HRfeatures {
   // Generate 6-digit numeric token
@@ -776,6 +795,725 @@ export class HRfeatures {
       });
     } catch (error) {}
   };
-}
 
+  exportExcelAttendance = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Sesi tidak valid" });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan melihat jadwal shift karyawan",
+        });
+      }
+
+      // 1. Ambil data dari database
+      const data = await db.select().from(employeeAttendance);
+
+      // 2. Buat workbook
+      const workbook = new ExcelJS.Workbook();
+
+      // 3. Buat worksheet
+      const worksheet = workbook.addWorksheet("Data Karyawan");
+
+      // 4. Buat kolom
+      worksheet.columns = [
+        { header: "ID", key: "id", width: 10 },
+        { header: "Tanggal masuk", key: "tanggal", width: 30 },
+        { header: "absensi masuk", key: "absenMasuk", width: 35 },
+        { header: "absensi keluar", key: "absenKeluar", width: 35 },
+        { header: "kode karyawan", key: "code", width: 50 },
+      ];
+
+      // 5. Masukkan data
+      data.forEach((attendance) => {
+        worksheet.addRow({
+          id: attendance.shiftId,
+          tanggal: attendance.shiftDate,
+          absenMasuk: attendance.employeeIn,
+          absenKeluar: attendance.employeeOut,
+          code: attendance.id_employee,
+        });
+      });
+
+      // 6. Kirim file ke client
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="data-karyawan.xlsx"',
+      );
+
+      await workbook.xlsx.write(res);
+
+      res.end();
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        success: false,
+        message: "Gagal melakukan export Excel",
+      });
+    }
+  };
+
+  exportExcelShift = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan melihat jadwal shift karyawan",
+        });
+      }
+
+      // 1. Ambil data shift beserta relasinya
+      const data = await db
+        .select({
+          shiftId: shiftSchedule.shiftId,
+          shiftDate: shiftSchedule.shiftDate,
+          employeeId: employes.employeeId,
+          firstName: employes.firstName,
+          lastName: employes.lastName,
+          category: attendanceSettings.category,
+          normalTimeIn: attendanceSettings.normal_time_in,
+          normalTimeOut: attendanceSettings.normal_time_out,
+          upcomingShiftDate: shiftSchedule.upcomingShiftDate,
+          employeeLocate: shiftSchedule.employeeLocate,
+        })
+        .from(shiftSchedule)
+        .leftJoin(employes, eq(shiftSchedule.id_employee, employes.employeeId))
+        .leftJoin(
+          attendanceSettings,
+          eq(shiftSchedule.shiftTime, attendanceSettings.id_settings),
+        );
+
+      // 2. Buat workbook
+      const workbook = new ExcelJS.Workbook();
+
+      // 3. Buat worksheet
+      const worksheet = workbook.addWorksheet("Jadwal Shift");
+
+      // 4. Buat kolom
+      worksheet.columns = [
+        { header: "ID Shift", key: "shiftId", width: 15 },
+        { header: "Tanggal Shift", key: "shiftDate", width: 20 },
+        { header: "Kode Karyawan", key: "employeeId", width: 20 },
+        { header: "Nama Depan", key: "firstName", width: 20 },
+        { header: "Nama Belakang", key: "lastName", width: 20 },
+        { header: "Kategori Shift", key: "category", width: 20 },
+        { header: "Jam Masuk", key: "normalTimeIn", width: 20 },
+        { header: "Jam Keluar", key: "normalTimeOut", width: 20 },
+        {
+          header: "Tanggal Shift Berikutnya",
+          key: "upcomingShiftDate",
+          width: 25,
+        },
+        { header: "Lokasi Karyawan", key: "employeeLocate", width: 35 },
+      ];
+
+      // 5. Masukkan data
+      data.forEach((shift) => {
+        worksheet.addRow({
+          shiftId: shift.shiftId,
+          shiftDate: shift.shiftDate,
+          employeeId: shift.employeeId,
+          firstName: shift.firstName,
+          lastName: shift.lastName ?? "-",
+          category: shift.category,
+          normalTimeIn: shift.normalTimeIn ?? "-",
+          normalTimeOut: shift.normalTimeOut ?? "-",
+          upcomingShiftDate: shift.upcomingShiftDate ?? "-",
+          employeeLocate: shift.employeeLocate ?? "-",
+        });
+      });
+
+      // 6. Kirim file ke client
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="data-shift.xlsx"',
+      );
+
+      await workbook.xlsx.write(res);
+
+      res.end();
+    } catch (error) {
+      console.error(error);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          message: "Gagal melakukan export Excel",
+        });
+      }
+    }
+  };
+
+  exportExcelEmployee = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan melihat data karyawan",
+        });
+      }
+
+      // 1. Ambil data karyawan beserta relasinya
+      const data = await db
+        .select({
+          employeeId: employes.employeeId,
+          firstName: employes.firstName,
+          lastName: employes.lastName,
+          email: usersTable.email,
+          gender: employes.gender,
+          noTelp: employes.noTelp,
+          noRek: employes.noRek,
+          nip: employes.nip,
+          hireDate: employes.hire_date,
+          resignDate: employes.resign_date,
+          employmentStatus: employes.employment_status,
+          city: cities.kota,
+          province: provinces.provinsi,
+          position: position.position_name,
+          department: department.department_name,
+        })
+        .from(employes)
+        .leftJoin(usersTable, eq(employes.userId, usersTable.id))
+        .leftJoin(cities, eq(employes.cities_id, cities.id))
+        .leftJoin(provinces, eq(cities.provinsi_id, provinces.id))
+        .leftJoin(position, eq(employes.idPosition, position.id_position))
+        .leftJoin(
+          department,
+          eq(employes.idDepartment, department.id_department),
+        );
+
+      // 2. Buat workbook
+      const workbook = new ExcelJS.Workbook();
+
+      // 3. Buat worksheet
+      const worksheet = workbook.addWorksheet("Data Karyawan");
+
+      // 4. Buat kolom
+      worksheet.columns = [
+        { header: "Kode Karyawan", key: "employeeId", width: 20 },
+        { header: "Nama Depan", key: "firstName", width: 20 },
+        { header: "Nama Belakang", key: "lastName", width: 20 },
+        { header: "Email", key: "email", width: 30 },
+        { header: "Jenis Kelamin", key: "gender", width: 15 },
+        { header: "No Telepon", key: "noTelp", width: 20 },
+        { header: "No Rekening", key: "noRek", width: 20 },
+        { header: "NIP", key: "nip", width: 20 },
+        { header: "Tanggal Masuk", key: "hireDate", width: 20 },
+        { header: "Tanggal Resign", key: "resignDate", width: 20 },
+        { header: "Status", key: "employmentStatus", width: 15 },
+        { header: "Kota", key: "city", width: 20 },
+        { header: "Provinsi", key: "province", width: 20 },
+        { header: "Jabatan", key: "position", width: 25 },
+        { header: "Departemen", key: "department", width: 25 },
+      ];
+
+      // 5. Masukkan data
+      data.forEach((employee) => {
+        worksheet.addRow({
+          employeeId: employee.employeeId,
+          firstName: employee.firstName,
+          lastName: employee.lastName ?? "-",
+          email: employee.email,
+          gender: employee.gender,
+          noTelp: employee.noTelp ?? "-",
+          noRek: employee.noRek,
+          nip: employee.nip,
+          hireDate: employee.hireDate,
+          resignDate: employee.resignDate ?? "-",
+          employmentStatus: employee.employmentStatus,
+          city: employee.city,
+          province: employee.province,
+          position: employee.position,
+          department: employee.department,
+        });
+      });
+
+      // 6. Kirim file ke client
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="data-karyawan.xlsx"',
+      );
+
+      await workbook.xlsx.write(res);
+
+      res.end();
+    } catch (error) {
+      console.error(error);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          message: "Gagal melakukan export Excel",
+        });
+      }
+    }
+  };
+
+  HRresponsePermission = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      const userRequest = req.body;
+      const { status, id_permission } = userRequest;
+
+      const insertPermission = await db
+        .update(employeePermission)
+        .set({
+          status: status,
+          approved_by: user.userId,
+        })
+        .where(eq(employeePermission.id_permission, id_permission));
+
+      return res.status(201).json({
+        success: true,
+        message: "berhasil menanggapi permintaan karyawan",
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: error.flatten().fieldErrors,
+        });
+      }
+
+      console.error(error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
+
+  HRresponseOvertime = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      const userRequest = req.body;
+      const { status, id_overtime } = userRequest;
+
+      const [insertOvertime] = await db
+        .update(overtime)
+        .set({
+          status: status,
+          approved_by: user.userId,
+        })
+        .where(eq(overtime.id_overwork, id_overtime))
+        .returning();
+
+      return res.status(201).json({
+        success: true,
+        message: "berhasil menanggapi permintaan karyawan",
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: error.flatten().fieldErrors,
+        });
+      }
+
+      console.error(error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
+
+  addComponent = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      const validation = payrollComponentsSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: validation.error.flatten().fieldErrors,
+        });
+      }
+
+      const data = validation.data;
+
+      const inserData = await db
+        .insert(payrollComponents)
+        .values(data)
+        .returning();
+      if (inserData.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "gagal menambahkan component",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "berhasil menambahkan component",
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(500).json({
+        success: false,
+        message: "internal server error",
+      });
+    }
+  };
+
+  updateComponent = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      const validation = updatePayrollComponentsSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: validation.error.flatten().fieldErrors,
+        });
+      }
+
+      const data = validation.data;
+
+      const updateData = await db
+        .update(payrollComponents)
+        .set(data)
+        .where(eq(payrollComponents.id, Number(req.params.id)))
+        .returning();
+
+      if (updateData.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Component tidak ditemukan",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil memperbarui component",
+        data: updateData[0],
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(500).json({
+        success: false,
+        message: "internal server error",
+      });
+    }
+  };
+
+  getAllPayrollComponents = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      const components = await db
+        .select()
+        .from(payrollComponents)
+        .orderBy(asc(payrollComponents.id));
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil mengambil seluruh data komponen payroll",
+        data: components,
+      });
+    } catch (error) {
+      console.error("Error in getAllPayrollComponents:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
+
+  payrollAlocation = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      const validation = payrollAllocationsSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: validation.error.flatten().fieldErrors,
+        });
+      }
+
+      const data = validation.data;
+      const [allocationData] = await db
+        .insert(employeePayrollAllocations)
+        .values({
+          ...data,
+          amount: data.amount.toString(),
+        })
+        .onConflictDoUpdate({
+          target: [
+            employeePayrollAllocations.employeeId,
+            employeePayrollAllocations.componentId,
+          ],
+          set: {
+            amount: data.amount.toString(),
+          },
+        })
+        .returning();
+
+      return res.status(200).json({
+        success: true,
+        message: "Alokasi payroll berhasil ditambahkan atau diperbarui",
+        data: allocationData,
+      });
+    } catch (error) {
+      console.error("Error in getAllPayrollComponents:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
+
+  getAllPayrollAllocations = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      const allocationData = await db
+        .select({
+          allocationId: employeePayrollAllocations.allocationId,
+          employeeId: employeePayrollAllocations.employeeId,
+          employeeName: employes.firstName,
+          componentId: employeePayrollAllocations.componentId,
+          componentName: payrollComponents.componentName,
+          type: payrollComponents.type,
+          amount: employeePayrollAllocations.amount,
+        })
+        .from(employeePayrollAllocations)
+        .leftJoin(
+          employes,
+          eq(employeePayrollAllocations.employeeId, employes.employeeId),
+        )
+        .leftJoin(
+          payrollComponents,
+          eq(employeePayrollAllocations.componentId, payrollComponents.id),
+        );
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil mengambil data allocation payroll",
+        total: allocationData.length,
+        data: allocationData,
+      });
+    } catch (error) {
+      console.error("Error in getAllPayrollAllocations:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
+
+  getPayrollAllocationByEmployee = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan untuk akses fitur ini",
+        });
+      }
+
+      const employeeId = String(req.params.employeeId);
+
+      if (!employeeId || employeeId.length > 30) {
+        return res.status(400).json({
+          success: false,
+          message: "Employee ID tidak valid",
+        });
+      }
+
+      const allocationData = await db
+        .select({
+          allocationId: employeePayrollAllocations.allocationId,
+          employeeId: employeePayrollAllocations.employeeId,
+          componentId: employeePayrollAllocations.componentId,
+          componentName: payrollComponents.componentName,
+          type: payrollComponents.type,
+          amount: employeePayrollAllocations.amount,
+        })
+        .from(employeePayrollAllocations)
+        .leftJoin(
+          payrollComponents,
+          eq(employeePayrollAllocations.componentId, payrollComponents.id),
+        )
+        .where(eq(employeePayrollAllocations.employeeId, employeeId));
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil mengambil allocation karyawan",
+        total: allocationData.length,
+        data: allocationData,
+      });
+    } catch (error) {
+      console.error("Error in getPayrollAllocationByEmployee:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
+
+ 
+}
 export default new HRfeatures();

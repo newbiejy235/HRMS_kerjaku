@@ -13,5 +13,11 @@ router.post("/shift", authenticate, HRfeatures.createEmployeeShift);
 router.patch("/shift/:shiftId", authenticate, HRfeatures.updateEmployeeShift);
 router.get("/", authenticate, HRfeatures.getAllShiftSchedules);
 router.get("/attendance", authenticate, HRfeatures.getAllAttendanceEmployee);
+router.get("/excel-report", authenticate, HRfeatures.exportExcelAttendance);
+router.get("/export-employee",authenticate, HRfeatures.exportExcelEmployee);
+router.get("/export-shift", authenticate, HRfeatures.exportExcelShift);
+router.post("/response/permission", authenticate, HRfeatures.HRresponsePermission);
+router.post("/response/overtime", authenticate, HRfeatures.HRresponseOvertime);
+
 
 export default router;

@@ -1,48 +1,50 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Search, Filter } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Search, Filter, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { apiFetch } from "@/lib/api";
 
-const dummyKaryawan = [
-  { id: 1, nip: "KRY-001", nama: "Budi Santoso", jabatan: "Barista", outlet: "Kemang", status: "Aktif", tglMasuk: "12 Jan 2024" },
-  { id: 2, nip: "KRY-002", nama: "Siti Aminah", jabatan: "Kasir", outlet: "Senopati", status: "Aktif", tglMasuk: "05 Mar 2024" },
-  { id: 3, nip: "KRY-003", nama: "Andi Wijaya", jabatan: "Cook", outlet: "Kemang", status: "Aktif", tglMasuk: "20 Agu 2023" },
-  { id: 4, nip: "KRY-004", nama: "Dewi Lestari", jabatan: "Barista", outlet: "Tebet", status: "Nonaktif", tglMasuk: "15 Nov 2023" },
-  { id: 5, nip: "KRY-005", nama: "Rina Wulandari", jabatan: "Kepala Gerai", outlet: "Senopati", status: "Aktif", tglMasuk: "01 Feb 2023" },
-];
+type Karyawan = {
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  gender: string;
+  noTelp: string;
+  hireDate: string;
+  employmentStatus: string;
+  email: string;
+  role: string;
+};
 
 export default function KaryawanPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [karyawan, setKaryawan] = useState<Karyawan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredKaryawan = dummyKaryawan.filter((k) =>
-    k.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    k.nip.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    const fetchKaryawan = async () => {
+      try {
+        const response = await apiFetch("/data");
+        const result = await response.json();
+        if (result.success) setKaryawan(result.data);
+      } catch (error) {
+        console.error("Gagal mengambil data karyawan:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchKaryawan();
+  }, []);
+
+  const filteredKaryawan = karyawan.filter((k) =>
+    k.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    k.employeeId.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -59,62 +61,25 @@ export default function KaryawanPage() {
               <Plus className="h-4 w-4 mr-2" />
               Tambah Karyawan
             </Button>
-          }>
-          </DialogTrigger>
+          } />
           <DialogContent className="sm:max-w-[500px] p-6 rounded-xl border-slate-200">
             <DialogHeader className="mb-4">
               <DialogTitle className="text-xl font-semibold text-slate-900 font-heading">Tambah Karyawan Baru</DialogTitle>
             </DialogHeader>
-            
             <form className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="nama" className="text-sm font-medium text-slate-700">Nama Lengkap</Label>
-                  <Input id="nama" placeholder="Sesuai KTP" className="h-10 rounded-lg border-slate-300 focus:ring-emerald-500" />
+                  <Input id="nama" placeholder="Sesuai KTP" className="h-10 rounded-lg border-slate-300" />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="nip" className="text-sm font-medium text-slate-700">NIP</Label>
                   <Input id="nip" placeholder="KRY-006" className="h-10 rounded-lg border-slate-300 tabular-nums" />
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="jabatan" className="text-sm font-medium text-slate-700">Jabatan</Label>
-                  <Select>
-                    <SelectTrigger className="h-10 rounded-lg border-slate-300">
-                      <SelectValue placeholder="Pilih jabatan" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="barista">Barista</SelectItem>
-                      <SelectItem value="kasir">Kasir</SelectItem>
-                      <SelectItem value="cook">Cook</SelectItem>
-                      <SelectItem value="kepala-gerai">Kepala Gerai</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="outlet" className="text-sm font-medium text-slate-700">Outlet</Label>
-                  <Select>
-                    <SelectTrigger className="h-10 rounded-lg border-slate-300">
-                      <SelectValue placeholder="Pilih outlet" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="kemang">Kemang</SelectItem>
-                      <SelectItem value="senopati">Senopati</SelectItem>
-                      <SelectItem value="tebet">Tebet</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
               <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="h-10 rounded-lg border-slate-300">
-                  Batal
-                </Button>
-                <Button type="button" onClick={() => setIsDialogOpen(false)} className="h-10 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white">
-                  Simpan Data
-                </Button>
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="h-10 rounded-lg border-slate-300">Batal</Button>
+                <Button type="button" onClick={() => setIsDialogOpen(false)} className="h-10 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white">Simpan Data</Button>
               </div>
             </form>
           </DialogContent>
@@ -144,40 +109,48 @@ export default function KaryawanPage() {
               <TableRow className="border-slate-200 hover:bg-transparent">
                 <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-11">NIP</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-11">Nama Karyawan</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-11">Jabatan</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-11">Outlet</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-11">Role</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-11">Kontak</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-11">Tgl Masuk</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-11 text-right">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredKaryawan.map((row) => (
-                <TableRow key={row.id} className="border-slate-200 hover:bg-slate-50 transition-colors h-12">
-                  <TableCell className="text-sm text-slate-600 tabular-nums">{row.nip}</TableCell>
-                  <TableCell className="text-sm font-medium text-slate-900">{row.nama}</TableCell>
-                  <TableCell className="text-sm text-slate-600">{row.jabatan}</TableCell>
-                  <TableCell className="text-sm text-slate-600">{row.outlet}</TableCell>
-                  <TableCell className="text-sm text-slate-600 tabular-nums">{row.tglMasuk}</TableCell>
-                  <TableCell className="text-right">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
-                      row.status === "Aktif" 
-                        ? "bg-emerald-50 text-emerald-700" 
-                        : "bg-slate-100 text-slate-600"
-                    }`}>
-                      {row.status}
-                    </span>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-emerald-600" />
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : filteredKaryawan.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center text-slate-500">
+                    Tidak ada data karyawan.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredKaryawan.map((row) => (
+                  <TableRow key={row.employeeId} className="border-slate-200 hover:bg-slate-50 transition-colors h-12">
+                    <TableCell className="text-sm text-slate-600 tabular-nums">{row.employeeId}</TableCell>
+                    <TableCell className="text-sm font-medium text-slate-900">{row.firstName} {row.lastName || ""}</TableCell>
+                    <TableCell className="text-sm text-slate-600">{row.role}</TableCell>
+                    <TableCell className="text-sm text-slate-600 tabular-nums">{row.noTelp || "-"}</TableCell>
+                    <TableCell className="text-sm text-slate-600 tabular-nums">{row.hireDate}</TableCell>
+                    <TableCell className="text-right">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
+                        row.employmentStatus === "active"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-slate-100 text-slate-600"
+                      }`}>
+                        {row.employmentStatus === "active" ? "Aktif" : "Nonaktif"}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
-        
-        {filteredKaryawan.length === 0 && (
-          <div className="p-12 text-center text-slate-500 text-sm">
-            Tidak ada data karyawan yang cocok dengan pencarian "{searchTerm}".
-          </div>
-        )}
       </div>
     </div>
   );
