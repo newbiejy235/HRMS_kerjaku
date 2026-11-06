@@ -24,6 +24,8 @@ export const createShiftScheduleSchema = z
   .object({
     shiftDate: shiftDateField,
     shiftTime: shiftTimeField,
+    upcomingShiftTime : shiftTimeField,
+    upcomingShiftDate : shiftDateField,
     employeeLocate: employeeLocateField.optional(),
     id_employee: idEmployeeField,
   })

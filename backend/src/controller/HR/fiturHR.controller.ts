@@ -392,6 +392,7 @@ export class HRfeatures {
         .pick({
           normal_time_in: true,
           normal_time_out: true,
+          tolerance_time: true,
         })
         .partial()
         .strict();
@@ -467,8 +468,14 @@ export class HRfeatures {
         });
       }
 
-      const { shiftDate, shiftTime, employeeLocate, id_employee } =
-        validationResult.data;
+      const {
+        shiftDate,
+        shiftTime,
+        employeeLocate,
+        id_employee,
+        upcomingShiftDate,
+        upcomingShiftTime,
+      } = validationResult.data;
 
       // Pastikan karyawan terdaftar
       const [employee] = await db
@@ -524,6 +531,8 @@ export class HRfeatures {
         .values({
           shiftDate,
           shiftTime,
+          upcomingShiftDate,
+          upcomingShiftTime,
           employeeLocate: employeeLocate ?? null,
           id_employee,
         })
@@ -1513,7 +1522,5 @@ export class HRfeatures {
       });
     }
   };
-
- 
 }
 export default new HRfeatures();

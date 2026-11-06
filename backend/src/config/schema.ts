@@ -156,21 +156,39 @@ export const attendanceSettings = pgTable("attendance_settings", {
   category: shiftCategory().notNull(),
   normal_time_in: time(),
   normal_time_out: time(),
+  tolerance_time: time(),
 });
 
-export const shiftSchedule = pgTable("shift", {
-  shiftId: integer().primaryKey().generatedAlwaysAsIdentity(),
-  shiftDate: date().notNull(),
-  shiftTime: integer()
-    .notNull()
-    .references(() => attendanceSettings.id_settings),
-  upcomingShiftDate: date(),
-  upcomingShiftTime: integer().references(() => attendanceSettings.id_settings),
-  employeeLocate: text(),
-  id_employee: varchar()
-    .notNull()
-    .references(() => employes.employeeId),
-});
+export const shiftSchedule = pgTable(
+  "shift",
+  {
+    shiftId: integer().primaryKey().generatedAlwaysAsIdentity(),
+
+    shiftDate: date().notNull(),
+
+    shiftTime: integer()
+      .notNull()
+      .references(() => attendanceSettings.id_settings),
+
+    upcomingShiftDate: date(),
+
+    upcomingShiftTime: integer().references(
+      () => attendanceSettings.id_settings,
+    ),
+
+    employeeLocate: text(),
+
+    id_employee: varchar({ length: 30 })
+      .notNull()
+      .references(() => employes.employeeId),
+  },
+  (table) => [
+    uniqueIndex("employee_shift_date_unique").on(
+      table.id_employee,
+      table.shiftDate,
+    ),
+  ],
+);
 
 export const attendanceQrCode = pgTable("qr_code", {
   id_qrCode: integer().primaryKey().generatedAlwaysAsIdentity(),

@@ -198,12 +198,15 @@ export class EmployeeFeatures {
       const userId = req.user?.userId;
       const { token } = req.body;
 
+      // 1. Validasi user
       if (!userId) {
         return res.status(401).json({
           success: false,
           message: "Sesi tidak valid",
         });
       }
+
+      // 2. Validasi token QR
       if (!token || typeof token !== "string") {
         return res.status(400).json({
           success: false,
@@ -211,10 +214,10 @@ export class EmployeeFeatures {
         });
       }
 
-      // Hash token dari hasil scan
+      // 3. Hash token QR
       const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
-      const [tryToPresent] = await db
+      const [validQr] = await db
         .select()
         .from(attendanceQrCode)
         .where(
@@ -224,13 +227,14 @@ export class EmployeeFeatures {
           ),
         );
 
-      if (!tryToPresent) {
+      if (!validQr) {
         return res.status(404).json({
           success: false,
-          message: "qr tidak valid",
+          message: "QR Code tidak valid atau sudah kedaluwarsa",
         });
       }
 
+      // 4. Ambil data karyawan
       const [user] = await db
         .select({
           employeeId: employes.employeeId,
@@ -253,16 +257,56 @@ export class EmployeeFeatures {
         });
       }
 
-      // Satu timezone untuk tanggal & jam
+      // 5. Ambil tanggal dan waktu Jakarta
       const now = new Date();
+
       const shiftDate = now.toLocaleDateString("sv-SE", {
         timeZone: "Asia/Jakarta",
-      }); // YYYY-MM-DD
+      });
+
       const currentTime = now.toLocaleTimeString("sv-SE", {
         timeZone: "Asia/Jakarta",
-      }); // HH:MM:SS
+        hour12: false,
+      });
 
-      // Cek dulu, baru insert/update
+      // 6. Ambil jadwal shift karyawan hari ini
+      const [schedule] = await db
+        .select({
+          shiftId: shiftSchedule.shiftId,
+          shiftDate: shiftSchedule.shiftDate,
+          normalTimeIn: attendanceSettings.normal_time_in,
+          normalTimeOut: attendanceSettings.normal_time_out,
+          toleranceTime: attendanceSettings.tolerance_time,
+        })
+        .from(shiftSchedule)
+        .innerJoin(
+          attendanceSettings,
+          eq(shiftSchedule.shiftTime, attendanceSettings.id_settings),
+        )
+        .where(
+          and(
+            eq(shiftSchedule.id_employee, user.employeeId),
+            eq(shiftSchedule.shiftDate, shiftDate),
+          ),
+        )
+        .limit(1);
+
+      if (!schedule) {
+        return res.status(404).json({
+          success: false,
+          message: "Jadwal shift hari ini tidak ditemukan",
+        });
+      }
+
+      // 7. Validasi konfigurasi jam masuk
+      if (!schedule.normalTimeIn || !schedule.toleranceTime) {
+        return res.status(400).json({
+          success: false,
+          message: "Pengaturan jam masuk atau toleransi belum dikonfigurasi",
+        });
+      }
+
+      // 8. Cek apakah karyawan sudah melakukan absensi hari ini
       const [existing] = await db
         .select()
         .from(employeeAttendance)
@@ -273,19 +317,41 @@ export class EmployeeFeatures {
           ),
         );
 
+      // 9. Jika belum ada absensi, lakukan check-in
       if (!existing) {
+        let attendanceStatus: "on time" | "tolerance time" | "late";
+
+        // Tentukan status berdasarkan jam masuk
+        if (currentTime <= schedule.normalTimeIn) {
+          attendanceStatus = "on time";
+        } else if (currentTime < schedule.toleranceTime) {
+          attendanceStatus = "tolerance time";
+        } else {
+          attendanceStatus = "late";
+        }
+
         await db.insert(employeeAttendance).values({
           shiftDate,
           employeeIn: currentTime,
           id_employee: user.employeeId,
+          status: attendanceStatus,
         });
 
         return res.status(200).json({
           success: true,
           message: "Berhasil melakukan absensi kehadiran",
+          data: {
+            employeeId: user.employeeId,
+            date: shiftDate,
+            checkIn: currentTime,
+            status: attendanceStatus,
+            normalTimeIn: schedule.normalTimeIn,
+            toleranceTime: schedule.toleranceTime,
+          },
         });
       }
 
+      // 10. Jika sudah check-out, tolak absensi berikutnya
       if (existing.employeeOut) {
         return res.status(409).json({
           success: false,
@@ -293,14 +359,24 @@ export class EmployeeFeatures {
         });
       }
 
+      // 11. Lakukan check-out
       await db
         .update(employeeAttendance)
-        .set({ employeeOut: currentTime })
+        .set({
+          employeeOut: currentTime,
+        })
         .where(eq(employeeAttendance.shiftId, existing.shiftId));
 
       return res.status(200).json({
         success: true,
         message: "Berhasil melakukan absensi pulang",
+        data: {
+          employeeId: user.employeeId,
+          date: shiftDate,
+          checkIn: existing.employeeIn,
+          checkOut: currentTime,
+          status: existing.status,
+        },
       });
     } catch (error) {
       console.error("Scan Attendance Error:", error);
