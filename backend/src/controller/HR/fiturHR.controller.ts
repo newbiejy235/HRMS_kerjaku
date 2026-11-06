@@ -1,5 +1,6 @@
 import { db } from "../../config/db";
 import { eq, and, sql, asc, gte, lte, lt } from "drizzle-orm";
+
 import {
   passwordResetRequests,
   usersTable,
@@ -56,6 +57,13 @@ import {
   overtimeHRSchema,
 } from "../../validation/overtime.validation";
 import TelegramService from "../../services/notification.service";
+import { alias } from "drizzle-orm/pg-core";
+import { ne } from "drizzle-orm";
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+const fmtTime = (t: string | null) => (t ? t.slice(0, 5) : "-");
 
 export class HRfeatures {
   // Generate 6-digit numeric token
@@ -555,32 +563,62 @@ export class HRfeatures {
         .from(employes)
         .where(eq(employes.employeeId, id_employee));
 
-      console.log(data);
-      console.log(data.telegramChatId);
-      
+      if (data.telegramChatId) {
+        const currentSetting = alias(attendanceSettings, "current_setting");
+        const upcomingSetting = alias(attendanceSettings, "upcoming_setting");
 
-      if (!data.telegramChatId) {
-        return res.status(200).json({
-          success: true,
-          message: "alert, karyawan belum aktifin bot telegram",
-        });
+        const [info] = await db
+          .select({
+            firstName: employes.firstName,
+            telegramChatId: employes.telegramChatId,
+            shiftDate: shiftSchedule.shiftDate,
+            shiftCategory: currentSetting.category,
+            shiftIn: currentSetting.normal_time_in,
+            shiftOut: currentSetting.normal_time_out,
+            upcomingShiftDate: shiftSchedule.upcomingShiftDate,
+            upcomingCategory: upcomingSetting.category,
+            upcomingIn: upcomingSetting.normal_time_in,
+            upcomingOut: upcomingSetting.normal_time_out,
+          })
+          .from(shiftSchedule)
+          .innerJoin(
+            employes,
+            eq(employes.employeeId, shiftSchedule.id_employee),
+          )
+          .innerJoin(
+            currentSetting,
+            eq(currentSetting.id_settings, shiftSchedule.shiftTime),
+          )
+          .leftJoin(
+            upcomingSetting,
+            eq(upcomingSetting.id_settings, shiftSchedule.upcomingShiftTime),
+          )
+          .where(eq(shiftSchedule.shiftId, created.shiftId));
+
+        const upcomingText = info.upcomingShiftDate
+          ? [
+              `📆 Tanggal: ${info.upcomingShiftDate}`,
+              `⏱️ Shift: ${info.upcomingCategory} (${fmtTime(info.upcomingIn)} - ${fmtTime(info.upcomingOut)})`,
+            ].join("\n")
+          : "Belum ada jadwal shift selanjutnya";
+
+        const message = [
+          "<b>Jadwal shift kamu</b>",
+          "",
+          `Haloo ${escapeHtml(info.firstName)} 👋`,
+          "",
+          "Jadwal shift kamu saat ini:",
+          `📆 Tanggal: ${info.shiftDate}`,
+          `⏱️ Shift: ${info.shiftCategory} (${fmtTime(info.shiftIn)} - ${fmtTime(info.shiftOut)})`,
+          "",
+          "Perkiraan pergantian shift yang akan datang:",
+          upcomingText,
+          "",
+          "<b>Jangan sampai terlambat ya, ditunggu kehadirannya 😁</b>",
+        ].join("\n");
+
+        await TelegramService.sendMessage(data.telegramChatId, message);
       }
-
-      const message = `
-        <b> Shift hari ini dan yang akan datang </b>
-
-        Haloo ${data.firstName} 👋
-
-        hari ini kamu kebagian shift di jam ${shiftTime} pada tanggal ${shiftDate}
-
-        untuk perkiraan pergantian shift yang akan datang : 
-        📆 tanggal ${upcomingShiftDate}
-        ⏱️ jam ${upcomingShiftTime} 
-
-        <b> Jangan sampai terlambat ya, ditunggu kehadiran nya 😁 </b>
-        
-        `;
-      await TelegramService.sendMessage(data.telegramChatId, message);
 
       return res.status(201).json({
         success: true,
@@ -620,9 +658,7 @@ export class HRfeatures {
           .json({ success: false, message: "ID shift tidak valid" });
       }
 
-      // Whitelist: HR hanya boleh mengubah shiftDate, shiftTime, dan employeeLocate
       const validationResult = updateShiftScheduleSchema.safeParse(req.body);
-
       if (!validationResult.success) {
         return res.status(400).json({
           success: false,
@@ -633,11 +669,7 @@ export class HRfeatures {
 
       const validatedData = validationResult.data;
 
-      if (
-        validatedData.shiftDate === undefined &&
-        validatedData.shiftTime === undefined &&
-        validatedData.employeeLocate === undefined
-      ) {
+      if (Object.values(validatedData).every((v) => v === undefined)) {
         return res.status(400).json({
           success: false,
           message: "Tidak ada data yang ingin diupdate",
@@ -648,8 +680,6 @@ export class HRfeatures {
         .select({
           shiftId: shiftSchedule.shiftId,
           shiftDate: shiftSchedule.shiftDate,
-          shiftTime: shiftSchedule.shiftTime,
-          employeeLocate: shiftSchedule.employeeLocate,
           id_employee: shiftSchedule.id_employee,
         })
         .from(shiftSchedule)
@@ -667,67 +697,59 @@ export class HRfeatures {
       const updateData: {
         shiftDate?: string;
         shiftTime?: number;
-        upcomingShiftDate?: string | null;
-        upcomingShiftTime?: number | null; // <-- was string | null
+        upcomingShiftDate?: string;
+        upcomingShiftTime?: number;
         employeeLocate?: string | null;
       } = {};
 
-      if (validatedData.shiftDate !== undefined) {
+      if (validatedData.shiftDate !== undefined)
         updateData.shiftDate = validatedData.shiftDate;
-      }
-
-      if (validatedData.shiftTime !== undefined) {
+      if (validatedData.shiftTime !== undefined)
         updateData.shiftTime = validatedData.shiftTime;
-      }
-
-      if (validatedData.employeeLocate !== undefined) {
-        updateData.employeeLocate = validatedData.employeeLocate;
-      }
-      if (validatedData.upcomingShiftDate !== undefined) {
+      if (validatedData.upcomingShiftDate !== undefined)
         updateData.upcomingShiftDate = validatedData.upcomingShiftDate;
-      }
-      if (validatedData.upcomingShiftTime !== undefined) {
+      if (validatedData.upcomingShiftTime !== undefined)
         updateData.upcomingShiftTime = validatedData.upcomingShiftTime;
-      }
+      if (validatedData.employeeLocate !== undefined)
+        updateData.employeeLocate = validatedData.employeeLocate;
 
-      // Validasi FK jika shiftTime diperbarui
-      if (updateData.shiftTime !== undefined) {
-        const [shiftSetting] = await db
-          .select({ idSettings: attendanceSettings.id_settings })
+      // Validasi FK shiftTime & upcomingShiftTime
+      for (const [key, settingId] of [
+        ["shiftTime", updateData.shiftTime],
+        ["upcomingShiftTime", updateData.upcomingShiftTime],
+      ] as const) {
+        if (settingId === undefined) continue;
+
+        const [setting] = await db
+          .select({ id: attendanceSettings.id_settings })
           .from(attendanceSettings)
-          .where(eq(attendanceSettings.id_settings, updateData.shiftTime))
+          .where(eq(attendanceSettings.id_settings, settingId))
           .limit(1);
 
-        if (!shiftSetting) {
+        if (!setting) {
           return res.status(404).json({
             success: false,
-            message: "Pengaturan shift tidak ditemukan",
+            message: `Pengaturan shift tidak ditemukan (${key})`,
           });
         }
       }
 
-      // Cegah duplikat jika tanggal atau shift diperbarui:
-      // bandingkan tanggal & shift efektif terhadap jadwal lain milik karyawan yang sama
-      if (
-        updateData.shiftDate !== undefined ||
-        updateData.shiftTime !== undefined
-      ) {
-        const effectiveDate = updateData.shiftDate ?? existingShift.shiftDate;
-        const effectiveTime = updateData.shiftTime ?? existingShift.shiftTime;
-
+      // Cegah duplikat: unique index di DB = (id_employee, shiftDate),
+      // jadi cek cukup berdasarkan tanggal saja
+      if (updateData.shiftDate !== undefined) {
         const [duplicateShift] = await db
           .select({ shiftId: shiftSchedule.shiftId })
           .from(shiftSchedule)
           .where(
             and(
               eq(shiftSchedule.id_employee, existingShift.id_employee),
-              eq(shiftSchedule.shiftDate, effectiveDate),
-              eq(shiftSchedule.shiftTime, effectiveTime),
+              eq(shiftSchedule.shiftDate, updateData.shiftDate),
+              ne(shiftSchedule.shiftId, targetShiftId),
             ),
           )
           .limit(1);
 
-        if (duplicateShift && duplicateShift.shiftId !== targetShiftId) {
+        if (duplicateShift) {
           return res.status(409).json({
             success: false,
             message:
@@ -749,9 +771,81 @@ export class HRfeatures {
         });
       }
 
+      // Ambil data TERBARU (gabungan yang diupdate + yang tidak) lewat join
+      const currentSetting = alias(attendanceSettings, "current_setting");
+      const upcomingSetting = alias(attendanceSettings, "upcoming_setting");
+
+      const [info] = await db
+        .select({
+          firstName: employes.firstName,
+          telegramChatId: employes.telegramChatId,
+          shiftDate: shiftSchedule.shiftDate,
+          shiftCategory: currentSetting.category,
+          shiftIn: currentSetting.normal_time_in,
+          shiftOut: currentSetting.normal_time_out,
+          upcomingShiftDate: shiftSchedule.upcomingShiftDate,
+          upcomingCategory: upcomingSetting.category,
+          upcomingIn: upcomingSetting.normal_time_in,
+          upcomingOut: upcomingSetting.normal_time_out,
+        })
+        .from(shiftSchedule)
+        .innerJoin(employes, eq(employes.employeeId, shiftSchedule.id_employee))
+        .innerJoin(
+          currentSetting,
+          eq(currentSetting.id_settings, shiftSchedule.shiftTime),
+        )
+        .leftJoin(
+          upcomingSetting,
+          eq(upcomingSetting.id_settings, shiftSchedule.upcomingShiftTime),
+        )
+        .where(eq(shiftSchedule.shiftId, targetShiftId))
+        .limit(1);
+
+      if (!info?.telegramChatId) {
+        return res.status(200).json({
+          success: true,
+          message:
+            "Berhasil update jadwal shift, tapi karyawan belum mengaktifkan bot Telegram",
+          data: updated,
+        });
+      }
+
+      const upcomingText = info.upcomingShiftDate
+        ? [
+            `📆 Tanggal: ${info.upcomingShiftDate}`,
+            `⏱️ Shift: ${info.upcomingCategory} (${fmtTime(info.upcomingIn)} - ${fmtTime(info.upcomingOut)})`,
+          ].join("\n")
+        : "Belum ada jadwal shift selanjutnya";
+
+      const message = [
+        "<b>Jadwal shift kamu</b>",
+        "",
+        `Haloo ${escapeHtml(info.firstName)} 👋`,
+        "",
+        "Jadwal shift kamu saat ini:",
+        `📆 Tanggal: ${info.shiftDate}`,
+        `⏱️ Shift: ${info.shiftCategory} (${fmtTime(info.shiftIn)} - ${fmtTime(info.shiftOut)})`,
+        "",
+        "Perkiraan pergantian shift yang akan datang:",
+        upcomingText,
+        "",
+        "<b>Jangan sampai terlambat ya, ditunggu kehadirannya 😁</b>",
+      ].join("\n");
+
+      // Gagal kirim Telegram tidak boleh bikin request 500, update sudah sukses
+      let telegramSent = true;
+      try {
+        await TelegramService.sendMessage(info.telegramChatId, message);
+      } catch (err) {
+        telegramSent = false;
+        console.error("Gagal kirim notifikasi Telegram:", err);
+      }
+
       return res.status(200).json({
         success: true,
-        message: "Berhasil update jadwal shift karyawan",
+        message: telegramSent
+          ? "Berhasil update jadwal shift karyawan"
+          : "Berhasil update jadwal shift, tapi notifikasi Telegram gagal terkirim",
         data: updated,
       });
     } catch (error) {
@@ -1223,6 +1317,26 @@ export class HRfeatures {
         })
         .where(eq(overtime.id_overwork, id_overtime))
         .returning();
+
+      const [data] = await db
+        .select()
+        .from(employes)
+        .where(eq(employes.employeeId, insertOvertime.id_employee));
+
+      if (data.telegramChatId) {
+        const message = [
+          "<b>Jadwal shift kamu</b>",
+          "",
+          `Haloo ${escapeHtml(data.firstName)} 👋`,
+          "",
+          "",
+          "HR telah meresponse permintaan kamu,",
+          `Keputusan HR : ${status} `,
+          "",
+        ].join("\n");
+
+        await TelegramService.sendMessage(data.telegramChatId, message);
+      }
 
       return res.status(201).json({
         success: true,

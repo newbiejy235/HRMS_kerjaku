@@ -1,4 +1,4 @@
-import { and, desc, eq, gt } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull } from "drizzle-orm";
 import { Request, Response } from "express";
 import { db } from "../../config/db";
 import {
@@ -23,6 +23,11 @@ import QRCode from "qrcode";
 import crypto from "node:crypto";
 import { ZodError } from "zod";
 import { calculateDistance } from "../../lib/location";
+import TelegramService from "../../services/notification.service";
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 
 export class EmployeeFeatures {
   employeeProfile = async (req: AuthRequest, res: Response) => {
@@ -195,275 +200,273 @@ export class EmployeeFeatures {
     }
   };
 
-attendance = async (req: AuthRequest, res: Response) => {
-  try {
-    const userId = req.user?.userId;
-    const { token, latitude, longitude } = req.body;
+  attendance = async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      const { token, latitude, longitude } = req.body;
 
-    // 1. Validasi user
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Sesi tidak valid",
-      });
-    }
-
-    // 2. Validasi token QR
-    if (!token || typeof token !== "string") {
-      return res.status(400).json({
-        success: false,
-        message: "Token QR wajib dikirim",
-      });
-    }
-
-    // 3. Validasi koordinat GPS karyawan
-    if (
-      typeof latitude !== "number" ||
-      typeof longitude !== "number" ||
-      !Number.isFinite(latitude) ||
-      !Number.isFinite(longitude) ||
-      latitude < -90 ||
-      latitude > 90 ||
-      longitude < -180 ||
-      longitude > 180
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Koordinat GPS tidak valid",
-      });
-    }
-
-    // 4. Hash token QR
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest("hex");
-
-    const [validQr] = await db
-      .select()
-      .from(attendanceQrCode)
-      .where(
-        and(
-          eq(attendanceQrCode.qrCodeToken, tokenHash),
-          gt(attendanceQrCode.expiredAt, new Date()),
-        ),
-      )
-      .limit(1);
-
-    if (!validQr) {
-      return res.status(404).json({
-        success: false,
-        message: "QR Code tidak valid atau sudah kedaluwarsa",
-      });
-    }
-
-    // 5. Ambil data karyawan
-    const [user] = await db
-      .select({
-        employeeId: employes.employeeId,
-        employmentStatus: employes.employment_status,
-      })
-      .from(employes)
-      .where(eq(employes.userId, userId))
-      .limit(1);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "Data karyawan tidak ditemukan",
-      });
-    }
-
-    if (user.employmentStatus !== "active") {
-      return res.status(403).json({
-        success: false,
-        message: "Karyawan tidak aktif",
-      });
-    }
-
-    // 6. Ambil koordinat lokasi toko
-    const [companyLocation] = await db
-      .select({
-        latitude: attendanceLocation.latitude,
-        longitude: attendanceLocation.longitude,
-        radiusMeter: attendanceLocation.radiusMeter,
-      })
-      .from(attendanceLocation)
-      .where(eq(attendanceLocation.isActive, true))
-      .limit(1);
-
-    if (!companyLocation) {
-      return res.status(404).json({
-        success: false,
-        message: "Lokasi toko belum dikonfigurasi",
-      });
-    }
-
-    // 7. Hitung jarak karyawan dengan lokasi toko
-    const distance = calculateDistance(
-      latitude,
-      longitude,
-      companyLocation.latitude,
-      companyLocation.longitude,
-    );
-
-    // 8. Validasi radius lokasi
-    if (distance > companyLocation.radiusMeter) {
-      return res.status(403).json({
-        success: false,
-        message: "Absensi ditolak. Anda berada di luar jangkauan lokasi toko.",
-        data: {
-          employeeDistance: Math.round(distance),
-          allowedRadius: companyLocation.radiusMeter,
-          latitude,
-          longitude,
-        },
-      });
-    }
-
-    // 9. Format koordinat karyawan untuk disimpan
-    const employeeLocate = `longtitude: ${longitude}, latitude: ${latitude}`;
-
-    // 10. Ambil tanggal dan waktu Jakarta
-    const now = new Date();
-
-    const shiftDate = now.toLocaleDateString("sv-SE", {
-      timeZone: "Asia/Jakarta",
-    });
-
-    const currentTime = now.toLocaleTimeString("sv-SE", {
-      timeZone: "Asia/Jakarta",
-      hour12: false,
-    });
-
-    // 11. Ambil jadwal shift karyawan hari ini
-    const [schedule] = await db
-      .select({
-        shiftId: shiftSchedule.shiftId,
-        shiftDate: shiftSchedule.shiftDate,
-        normalTimeIn: attendanceSettings.normal_time_in,
-        normalTimeOut: attendanceSettings.normal_time_out,
-        toleranceTime: attendanceSettings.tolerance_time,
-      })
-      .from(shiftSchedule)
-      .innerJoin(
-        attendanceSettings,
-        eq(shiftSchedule.shiftTime, attendanceSettings.id_settings),
-      )
-      .where(
-        and(
-          eq(shiftSchedule.id_employee, user.employeeId),
-          eq(shiftSchedule.shiftDate, shiftDate),
-        ),
-      )
-      .limit(1);
-
-    if (!schedule) {
-      return res.status(404).json({
-        success: false,
-        message: "Jadwal shift hari ini tidak ditemukan",
-      });
-    }
-
-    // 12. Validasi konfigurasi jam masuk
-    if (!schedule.normalTimeIn || !schedule.toleranceTime) {
-      return res.status(400).json({
-        success: false,
-        message: "Pengaturan jam masuk atau toleransi belum dikonfigurasi",
-      });
-    }
-
-    // 13. Cek absensi karyawan hari ini
-    const [existing] = await db
-      .select()
-      .from(employeeAttendance)
-      .where(
-        and(
-          eq(employeeAttendance.id_employee, user.employeeId),
-          eq(employeeAttendance.shiftDate, shiftDate),
-        ),
-      )
-      .limit(1);
-
-    // 14. Jika belum ada absensi, lakukan check-in
-    if (!existing) {
-      let attendanceStatus: "on time" | "tolerance time" | "late";
-
-      if (currentTime <= schedule.normalTimeIn) {
-        attendanceStatus = "on time";
-      } else if (currentTime < schedule.toleranceTime) {
-        attendanceStatus = "tolerance time";
-      } else {
-        attendanceStatus = "late";
+      // 1. Validasi user
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
       }
 
-      const [newAttendance] = await db
-        .insert(employeeAttendance)
-        .values({
-          shiftDate,
-          employeeIn: currentTime,
-          id_employee: user.employeeId,
-          status: attendanceStatus,
+      // 2. Validasi token QR
+      if (!token || typeof token !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "Token QR wajib dikirim",
+        });
+      }
+
+      // 3. Validasi koordinat GPS karyawan
+      if (
+        typeof latitude !== "number" ||
+        typeof longitude !== "number" ||
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude) ||
+        latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Koordinat GPS tidak valid",
+        });
+      }
+
+      // 4. Hash token QR
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+      const [validQr] = await db
+        .select()
+        .from(attendanceQrCode)
+        .where(
+          and(
+            eq(attendanceQrCode.qrCodeToken, tokenHash),
+            gt(attendanceQrCode.expiredAt, new Date()),
+          ),
+        )
+        .limit(1);
+
+      if (!validQr) {
+        return res.status(404).json({
+          success: false,
+          message: "QR Code tidak valid atau sudah kedaluwarsa",
+        });
+      }
+
+      // 5. Ambil data karyawan
+      const [user] = await db
+        .select({
+          employeeId: employes.employeeId,
+          employmentStatus: employes.employment_status,
+        })
+        .from(employes)
+        .where(eq(employes.userId, userId))
+        .limit(1);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "Data karyawan tidak ditemukan",
+        });
+      }
+
+      if (user.employmentStatus !== "active") {
+        return res.status(403).json({
+          success: false,
+          message: "Karyawan tidak aktif",
+        });
+      }
+
+      // 6. Ambil koordinat lokasi toko
+      const [companyLocation] = await db
+        .select({
+          latitude: attendanceLocation.latitude,
+          longitude: attendanceLocation.longitude,
+          radiusMeter: attendanceLocation.radiusMeter,
+        })
+        .from(attendanceLocation)
+        .where(eq(attendanceLocation.isActive, true))
+        .limit(1);
+
+      if (!companyLocation) {
+        return res.status(404).json({
+          success: false,
+          message: "Lokasi toko belum dikonfigurasi",
+        });
+      }
+
+      // 7. Hitung jarak karyawan dengan lokasi toko
+      const distance = calculateDistance(
+        latitude,
+        longitude,
+        companyLocation.latitude,
+        companyLocation.longitude,
+      );
+
+      // 8. Validasi radius lokasi
+      if (distance > companyLocation.radiusMeter) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Absensi ditolak. Anda berada di luar jangkauan lokasi toko.",
+          data: {
+            employeeDistance: Math.round(distance),
+            allowedRadius: companyLocation.radiusMeter,
+            latitude,
+            longitude,
+          },
+        });
+      }
+
+      // 9. Format koordinat karyawan untuk disimpan
+      const employeeLocate = `longtitude: ${longitude}, latitude: ${latitude}`;
+
+      // 10. Ambil tanggal dan waktu Jakarta
+      const now = new Date();
+
+      const shiftDate = now.toLocaleDateString("sv-SE", {
+        timeZone: "Asia/Jakarta",
+      });
+
+      const currentTime = now.toLocaleTimeString("sv-SE", {
+        timeZone: "Asia/Jakarta",
+        hour12: false,
+      });
+
+      // 11. Ambil jadwal shift karyawan hari ini
+      const [schedule] = await db
+        .select({
+          shiftId: shiftSchedule.shiftId,
+          shiftDate: shiftSchedule.shiftDate,
+          normalTimeIn: attendanceSettings.normal_time_in,
+          normalTimeOut: attendanceSettings.normal_time_out,
+          toleranceTime: attendanceSettings.tolerance_time,
+        })
+        .from(shiftSchedule)
+        .innerJoin(
+          attendanceSettings,
+          eq(shiftSchedule.shiftTime, attendanceSettings.id_settings),
+        )
+        .where(
+          and(
+            eq(shiftSchedule.id_employee, user.employeeId),
+            eq(shiftSchedule.shiftDate, shiftDate),
+          ),
+        )
+        .limit(1);
+
+      if (!schedule) {
+        return res.status(404).json({
+          success: false,
+          message: "Jadwal shift hari ini tidak ditemukan",
+        });
+      }
+
+      // 12. Validasi konfigurasi jam masuk
+      if (!schedule.normalTimeIn || !schedule.toleranceTime) {
+        return res.status(400).json({
+          success: false,
+          message: "Pengaturan jam masuk atau toleransi belum dikonfigurasi",
+        });
+      }
+
+      // 13. Cek absensi karyawan hari ini
+      const [existing] = await db
+        .select()
+        .from(employeeAttendance)
+        .where(
+          and(
+            eq(employeeAttendance.id_employee, user.employeeId),
+            eq(employeeAttendance.shiftDate, shiftDate),
+          ),
+        )
+        .limit(1);
+
+      // 14. Jika belum ada absensi, lakukan check-in
+      if (!existing) {
+        let attendanceStatus: "on time" | "tolerance time" | "late";
+
+        if (currentTime <= schedule.normalTimeIn) {
+          attendanceStatus = "on time";
+        } else if (currentTime < schedule.toleranceTime) {
+          attendanceStatus = "tolerance time";
+        } else {
+          attendanceStatus = "late";
+        }
+
+        const [newAttendance] = await db
+          .insert(employeeAttendance)
+          .values({
+            shiftDate,
+            employeeIn: currentTime,
+            id_employee: user.employeeId,
+            status: attendanceStatus,
+            employeeLocate,
+          })
+          .returning();
+
+        return res.status(201).json({
+          success: true,
+          message: "Berhasil melakukan absensi kehadiran",
+          data: {
+            employeeId: user.employeeId,
+            date: shiftDate,
+            checkIn: currentTime,
+            status: attendanceStatus,
+            employeeLocate,
+            distance: Math.round(distance),
+            allowedRadius: companyLocation.radiusMeter,
+          },
+        });
+      }
+
+      // 15. Jika sudah check-out, tolak absensi berikutnya
+      if (existing.employeeOut) {
+        return res.status(409).json({
+          success: false,
+          message: "Kamu sudah absen pulang hari ini",
+        });
+      }
+
+      // 16. Lakukan check-out
+      const [updatedAttendance] = await db
+        .update(employeeAttendance)
+        .set({
+          employeeOut: currentTime,
           employeeLocate,
         })
+        .where(eq(employeeAttendance.shiftId, existing.shiftId))
         .returning();
 
-      return res.status(201).json({
+      return res.status(200).json({
         success: true,
-        message: "Berhasil melakukan absensi kehadiran",
+        message: "Berhasil melakukan absensi pulang",
         data: {
           employeeId: user.employeeId,
           date: shiftDate,
-          checkIn: currentTime,
-          status: attendanceStatus,
+          checkIn: existing.employeeIn,
+          checkOut: currentTime,
+          status: existing.status,
           employeeLocate,
           distance: Math.round(distance),
           allowedRadius: companyLocation.radiusMeter,
         },
       });
-    }
+    } catch (error) {
+      console.error("Scan Attendance Error:", error);
 
-    // 15. Jika sudah check-out, tolak absensi berikutnya
-    if (existing.employeeOut) {
-      return res.status(409).json({
+      return res.status(500).json({
         success: false,
-        message: "Kamu sudah absen pulang hari ini",
+        message: "Terjadi kesalahan server",
       });
     }
-
-    // 16. Lakukan check-out
-    const [updatedAttendance] = await db
-      .update(employeeAttendance)
-      .set({
-        employeeOut: currentTime,
-        employeeLocate,
-      })
-      .where(eq(employeeAttendance.shiftId, existing.shiftId))
-      .returning();
-
-    return res.status(200).json({
-      success: true,
-      message: "Berhasil melakukan absensi pulang",
-      data: {
-        employeeId: user.employeeId,
-        date: shiftDate,
-        checkIn: existing.employeeIn,
-        checkOut: currentTime,
-        status: existing.status,
-        employeeLocate,
-        distance: Math.round(distance),
-        allowedRadius: companyLocation.radiusMeter,
-      },
-    });
-  } catch (error) {
-    console.error("Scan Attendance Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Terjadi kesalahan server",
-    });
-  }
-};
+  };
 
   // employee request permission
   employeePermission = async (req: AuthRequest, res: Response) => {
@@ -563,6 +566,41 @@ attendance = async (req: AuthRequest, res: Response) => {
           description: description,
         })
         .returning();
+
+      // data karyawan yang mengajukan (buat nama di notif)
+      const [data] = await db
+        .select({
+          firstName: employes.firstName,
+          lastName: employes.lastName,
+        })
+        .from(employes)
+        .where(eq(employes.employeeId, userAccount.employee_code));
+
+      // semua HR yang sudah aktifin bot telegram
+      const hrList = await db
+        .select({ telegramChatId: employes.telegramChatId })
+        .from(usersTable)
+        .innerJoin(employes, eq(employes.userId, usersTable.id))
+        .where(
+          and(eq(usersTable.role, "HR"), isNotNull(employes.telegramChatId)),
+        );
+
+      const message = [
+        "<b>Pengajuan lembur baru</b>",
+        "",
+        `Karyawan: ${escapeHtml(`${data.firstName} ${data.lastName ?? ""}`.trim())} (${userAccount.employee_code})`,
+        `📆 Tanggal: ${overtimeDate}`,
+        `⏱️ Total lembur: ${overtimeTotal}`,
+        `📝 Keterangan: ${escapeHtml(description ?? "-")}`,
+        "",
+        "Silakan direspons di sistem.",
+      ].join("\n");
+
+      await Promise.allSettled(
+        hrList.map((hr) =>
+          TelegramService.sendMessage(hr.telegramChatId!, message),
+        ),
+      );
 
       return res.status(201).json({
         success: true,
@@ -682,7 +720,7 @@ attendance = async (req: AuthRequest, res: Response) => {
       });
     }
   };
-  
 }
 
 export default new EmployeeFeatures();
+
