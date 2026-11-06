@@ -9,6 +9,9 @@ import {
   time,
   numeric,
   uniqueIndex,
+  serial,
+  doublePrecision,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("userRole", ["Karyawan", "Finance", "HR"]);
@@ -133,12 +136,19 @@ export const passwordResetRequests = pgTable("password_reset_requests", {
   }),
 });
 
+export const attendanceStatus = pgEnum("attendance_status", [
+  "on time",
+  "late",
+  "tolerance time",
+]);
+
 export const employeeAttendance = pgTable("attendance", {
   shiftId: integer().primaryKey().generatedAlwaysAsIdentity(),
   shiftDate: date().notNull(),
   employeeIn: time(),
   employeeOut: time(),
   employeeLocate: text(),
+  status: attendanceStatus(),
   id_employee: varchar()
     .notNull()
     .references(() => employes.employeeId),
@@ -149,21 +159,39 @@ export const attendanceSettings = pgTable("attendance_settings", {
   category: shiftCategory().notNull(),
   normal_time_in: time(),
   normal_time_out: time(),
+  tolerance_time: time(),
 });
 
-export const shiftSchedule = pgTable("shift", {
-  shiftId: integer().primaryKey().generatedAlwaysAsIdentity(),
-  shiftDate: date().notNull(),
-  shiftTime: integer()
-    .notNull()
-    .references(() => attendanceSettings.id_settings),
-  upcomingShiftDate: date(),
-  upcomingShiftTime: integer().references(() => attendanceSettings.id_settings),
-  employeeLocate: text(),
-  id_employee: varchar()
-    .notNull()
-    .references(() => employes.employeeId),
-});
+export const shiftSchedule = pgTable(
+  "shift",
+  {
+    shiftId: integer().primaryKey().generatedAlwaysAsIdentity(),
+
+    shiftDate: date().notNull(),
+
+    shiftTime: integer()
+      .notNull()
+      .references(() => attendanceSettings.id_settings),
+
+    upcomingShiftDate: date(),
+
+    upcomingShiftTime: integer().references(
+      () => attendanceSettings.id_settings,
+    ),
+
+    employeeLocate: text(),
+
+    id_employee: varchar({ length: 30 })
+      .notNull()
+      .references(() => employes.employeeId),
+  },
+  (table) => [
+    uniqueIndex("employee_shift_date_unique").on(
+      table.id_employee,
+      table.shiftDate,
+    ),
+  ],
+);
 
 export const attendanceQrCode = pgTable("qr_code", {
   id_qrCode: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -329,4 +357,112 @@ export const payrollDetails = pgTable("payroll_details", {
     precision: 15,
     scale: 2,
   }).notNull(),
+});
+
+export const employeeAttendanceStatistics = pgTable(
+  "employee_attendance_statistics",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+
+    employeeId: varchar("employee_id", { length: 30 })
+      .notNull()
+      .references(() => employes.employeeId),
+
+    month: integer("month").notNull(),
+    year: integer("year").notNull(),
+
+    totalEffectiveDays: integer("total_effective_days").notNull().default(0),
+
+    totalPresent: integer("total_present").notNull().default(0),
+
+    totalAlpha: integer("total_alpha").notNull().default(0),
+
+    totalPermission: integer("total_permission").notNull().default(0),
+
+    totalOvertime: integer("total_overtime").notNull().default(0),
+
+    totalLate: integer("total_late").notNull().default(0),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("employee_attendance_statistics_unique").on(
+      table.employeeId,
+      table.month,
+      table.year,
+    ),
+  ],
+);
+
+export const attendanceLocation = pgTable("attendance_location", {
+  id: serial("id").primaryKey(),
+
+  locationName: varchar("location_name", {
+    length: 100,
+  }).notNull(),
+
+  latitude: doublePrecision("latitude").notNull(),
+  longitude: doublePrecision("longitude").notNull(),
+
+  radiusMeter: integer("radius_meter").notNull().default(100),
+
+  isActive: boolean("is_active").notNull().default(true),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const reimbursementStatus = pgEnum("reimbursement_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
+
+export const employeeReimbursements = pgTable("employee_reimbursements", {
+  id: serial("id").primaryKey(),
+
+  // Karyawan yang mengajukan
+  employeeId: varchar("employee_id")
+    .notNull()
+    .references(() => employes.employeeId, {
+      onDelete: "cascade",
+    }),
+
+  // Informasi pengajuan
+  name: varchar("name", { length: 255 }).notNull(),
+
+  description: text("description"),
+
+  amount: numeric("amount", {
+    precision: 12,
+    scale: 2,
+  }).notNull(),
+
+  // Foto bukti transaksi
+  receiptPhoto: text("receipt_photo").notNull(),
+
+  expenseDate: date("expense_date").notNull(),
+
+  // Status pengajuan
+  status: reimbursementStatus("status").default("pending").notNull(),
+
+  // Review oleh HR
+  reviewBy: integer("review_by").references(() => usersTable.id, {
+    onDelete: "set null",
+  }),
+
+  reviewedAt: timestamp("reviewed_at"),
+
+  rejectionReason: text("rejection_reason"),
+
+  // Timestamp
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

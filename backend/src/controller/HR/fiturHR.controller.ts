@@ -1,5 +1,5 @@
 import { db } from "../../config/db";
-import { eq, and, sql, asc } from "drizzle-orm";
+import { eq, and, sql, asc, gte, lte, lt } from "drizzle-orm";
 import {
   passwordResetRequests,
   usersTable,
@@ -14,6 +14,7 @@ import {
   payrollComponents,
   payrolls,
   payrollDetails,
+  employeeAttendanceStatistics,
 } from "../../config/schema";
 import { Request, Response, NextFunction } from "express";
 import {
@@ -43,7 +44,17 @@ import { bot } from "../../config/telegramBot";
 import { AuthRequest } from "../../middleware/users.middleware";
 import ExcelJS from "exceljs";
 import { employeePermission } from "../../config/schema";
-import { fromCents, toCents } from "../../lib/utils";
+import {
+  DEFAULT_EFFECTIVE_DAYS,
+  formatDate,
+  fromCents,
+  getPeriod,
+  toCents,
+} from "../../lib/utils";
+import {
+  overtimeSchema,
+  overtimeHRSchema,
+} from "../../validation/overtime.validation";
 
 export class HRfeatures {
   // Generate 6-digit numeric token
@@ -392,6 +403,7 @@ export class HRfeatures {
         .pick({
           normal_time_in: true,
           normal_time_out: true,
+          tolerance_time: true,
         })
         .partial()
         .strict();
@@ -467,8 +479,14 @@ export class HRfeatures {
         });
       }
 
-      const { shiftDate, shiftTime, employeeLocate, id_employee } =
-        validationResult.data;
+      const {
+        shiftDate,
+        shiftTime,
+        employeeLocate,
+        id_employee,
+        upcomingShiftDate,
+        upcomingShiftTime,
+      } = validationResult.data;
 
       // Pastikan karyawan terdaftar
       const [employee] = await db
@@ -524,6 +542,8 @@ export class HRfeatures {
         .values({
           shiftDate,
           shiftTime,
+          upcomingShiftDate,
+          upcomingShiftTime,
           employeeLocate: employeeLocate ?? null,
           id_employee,
         })
@@ -1514,6 +1534,500 @@ export class HRfeatures {
     }
   };
 
- 
+  generateAttendanceStatistics = async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user?.userId || req.user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Akses hanya untuk HR",
+        });
+      }
+
+      const month = Number(req.body.month);
+      const year = Number(req.body.year);
+
+      if (
+        !Number.isInteger(month) ||
+        month < 1 ||
+        month > 12 ||
+        !Number.isInteger(year) ||
+        year < 2000
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Bulan atau tahun tidak valid",
+        });
+      }
+
+      const { startDate, endDate, effectiveEndDate } = getPeriod(month, year);
+
+      if (startDate > formatDate(new Date())) {
+        return res.status(400).json({
+          success: false,
+          message: "Tidak bisa generate statistik untuk periode mendatang",
+        });
+      }
+
+      // 1. Ambil seluruh karyawan aktif.
+      const employees = await db
+        .select({
+          employeeId: employes.employeeId,
+        })
+        .from(employes)
+        .where(eq(employes.employment_status, "active"));
+
+      if (employees.length === 0) {
+        return res.status(200).json({
+          success: true,
+          message: "Tidak ada karyawan aktif",
+          data: [],
+        });
+      }
+
+      // 2. Ambil jadwal shift periode tersebut.
+      const schedules = await db
+        .select({
+          employeeId: shiftSchedule.id_employee,
+          shiftDate: shiftSchedule.shiftDate,
+        })
+        .from(shiftSchedule)
+        .where(
+          and(
+            gte(shiftSchedule.shiftDate, startDate),
+            lte(shiftSchedule.shiftDate, effectiveEndDate),
+          ),
+        );
+
+      // 3. Ambil seluruh attendance.
+      const attendances = await db
+        .select({
+          employeeId: employeeAttendance.id_employee,
+          shiftDate: employeeAttendance.shiftDate,
+          status: employeeAttendance.status,
+        })
+        .from(employeeAttendance)
+        .where(
+          and(
+            gte(employeeAttendance.shiftDate, startDate),
+            lte(employeeAttendance.shiftDate, effectiveEndDate),
+          ),
+        );
+
+      // 4. Ambil izin yang sudah diterima.
+      const permissions = await db
+        .select({
+          employeeId: employeePermission.id_employee,
+          startDate: employeePermission.start_date,
+          endDate: employeePermission.end_date,
+        })
+        .from(employeePermission)
+        .where(
+          and(
+            eq(employeePermission.status, "accepted"),
+            lte(employeePermission.start_date, effectiveEndDate),
+            gte(employeePermission.end_date, startDate),
+          ),
+        );
+
+      // 5. Ambil pengajuan lembur yang sudah diterima.
+      const periodStart = new Date(`${startDate}T00:00:00`);
+      const periodEndExclusive = new Date(
+        `${formatDate(
+          new Date(
+            new Date(`${effectiveEndDate}T00:00:00`).getTime() +
+              24 * 60 * 60 * 1000,
+          ),
+        )}T00:00:00`,
+      );
+
+      const overtimes = await db
+        .select({
+          employeeId: overtime.id_employee,
+          overtimeTotal: overtime.overtimeTotal,
+        })
+        .from(overtime)
+        .where(
+          and(
+            eq(overtime.status, "accepted"),
+            gte(overtime.overtimeDate, periodStart),
+            lt(overtime.overtimeDate, periodEndExclusive),
+          ),
+        );
+
+      // 6. Siapkan map agar perhitungan lebih efisien.
+      const scheduleMap = new Map<string, Set<string>>();
+      const attendanceMap = new Map<string, Map<string, string | null>>();
+
+      const permissionMap = new Map<
+        string,
+        Array<{ startDate: string; endDate: string }>
+      >();
+
+      const overtimeMap = new Map<string, number>();
+
+      // Jadwal kerja.
+      for (const item of schedules) {
+        if (!scheduleMap.has(item.employeeId)) {
+          scheduleMap.set(item.employeeId, new Set());
+        }
+
+        scheduleMap.get(item.employeeId)!.add(item.shiftDate);
+      }
+
+      // Attendance.
+      for (const item of attendances) {
+        if (!attendanceMap.has(item.employeeId)) {
+          attendanceMap.set(item.employeeId, new Map());
+        }
+
+        const employeeAttendanceMap = attendanceMap.get(item.employeeId)!;
+
+        // Satu tanggal hanya dihitung satu kali.
+        const previousStatus = employeeAttendanceMap.get(item.shiftDate);
+
+        if (previousStatus === undefined || item.status === "late") {
+          employeeAttendanceMap.set(item.shiftDate, item.status);
+        }
+      }
+
+      // Permission.
+      for (const item of permissions) {
+        if (!permissionMap.has(item.employeeId)) {
+          permissionMap.set(item.employeeId, []);
+        }
+
+        permissionMap.get(item.employeeId)!.push({
+          startDate: item.startDate,
+          endDate: item.endDate,
+        });
+      }
+
+      // Overtime.
+      for (const item of overtimes) {
+        const previous = overtimeMap.get(item.employeeId) ?? 0;
+
+        overtimeMap.set(item.employeeId, previous + item.overtimeTotal);
+      }
+
+      // 7. Hitung statistik setiap karyawan.
+      const statistics = employees.map((employee) => {
+        const employeeId = employee.employeeId;
+
+        const employeeSchedules =
+          scheduleMap.get(employeeId) ?? new Set<string>();
+
+        const employeeAttendances = attendanceMap.get(employeeId) ?? new Map();
+
+        const employeePermissions = permissionMap.get(employeeId) ?? [];
+
+        const presentDates = new Set<string>();
+        const permissionDates = new Set<string>();
+        const lateDates = new Set<string>();
+
+        // Hitung kehadiran dan keterlambatan.
+        for (const [date, status] of employeeAttendances) {
+          if (employeeSchedules.has(date)) {
+            presentDates.add(date);
+
+            if (status === "late") {
+              lateDates.add(date);
+            }
+          }
+        }
+
+        // Izin hanya dihitung pada tanggal yang memiliki jadwal.
+        for (const date of employeeSchedules) {
+          const hasPermission = employeePermissions.some(
+            (permission) =>
+              date >= permission.startDate && date <= permission.endDate,
+          );
+
+          // Jika hadir, tanggal tersebut tidak dihitung sebagai izin.
+          if (hasPermission && !presentDates.has(date)) {
+            permissionDates.add(date);
+          }
+        }
+
+        const totalEffectiveDays = employeeSchedules.size;
+
+        const totalPresent = presentDates.size;
+
+        const totalPermission = permissionDates.size;
+
+        const totalAlpha = Math.max(
+          0,
+          totalEffectiveDays - totalPresent - totalPermission,
+        );
+
+        const totalLate = lateDates.size;
+
+        const totalOvertime = overtimeMap.get(employeeId) ?? 0;
+
+        return {
+          employeeId,
+          month,
+          year,
+          totalEffectiveDays,
+          totalPresent,
+          totalAlpha,
+          totalPermission,
+          totalOvertime,
+          totalLate,
+        };
+      });
+
+      // 8. Simpan menggunakan UPSERT.
+      // 8. Simpan seluruh statistik menggunakan batch UPSERT.
+      if (statistics.length > 0) {
+        await db
+          .insert(employeeAttendanceStatistics)
+          .values(statistics)
+          .onConflictDoUpdate({
+            target: [
+              employeeAttendanceStatistics.employeeId,
+              employeeAttendanceStatistics.month,
+              employeeAttendanceStatistics.year,
+            ],
+            set: {
+              totalEffectiveDays: sql`excluded.total_effective_days`,
+              totalPresent: sql`excluded.total_present`,
+              totalAlpha: sql`excluded.total_alpha`,
+              totalPermission: sql`excluded.total_permission`,
+              totalOvertime: sql`excluded.total_overtime`,
+              totalLate: sql`excluded.total_late`,
+              updatedAt: new Date(),
+            },
+          });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Statistik kehadiran berhasil digenerate",
+        period: {
+          month,
+          year,
+          startDate,
+          endDate: effectiveEndDate,
+          defaultEffectiveDays: DEFAULT_EFFECTIVE_DAYS,
+        },
+        totalEmployees: statistics.length,
+        data: statistics,
+      });
+    } catch (error) {
+      console.error("Generate Attendance Statistics Error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan saat menghitung statistik kehadiran",
+      });
+    }
+  };
+
+  // GET seluruh statistik.
+  getAttendanceStatistics = async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user?.userId || req.user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Akses hanya untuk HR",
+        });
+      }
+
+      const month = Number(req.query.month);
+      const year = Number(req.query.year);
+
+      if (
+        !Number.isInteger(month) ||
+        month < 1 ||
+        month > 12 ||
+        !Number.isInteger(year) ||
+        year < 2000
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Bulan atau tahun tidak valid",
+        });
+      }
+
+      const data = await db
+        .select({
+          id: employeeAttendanceStatistics.id,
+          employeeId: employeeAttendanceStatistics.employeeId,
+          firstName: employes.firstName,
+          lastName: employes.lastName,
+          month: employeeAttendanceStatistics.month,
+          year: employeeAttendanceStatistics.year,
+          totalEffectiveDays: employeeAttendanceStatistics.totalEffectiveDays,
+          totalPresent: employeeAttendanceStatistics.totalPresent,
+          totalAlpha: employeeAttendanceStatistics.totalAlpha,
+          totalPermission: employeeAttendanceStatistics.totalPermission,
+          totalOvertime: employeeAttendanceStatistics.totalOvertime,
+          totalLate: employeeAttendanceStatistics.totalLate,
+        })
+        .from(employeeAttendanceStatistics)
+        .innerJoin(
+          employes,
+          eq(employeeAttendanceStatistics.employeeId, employes.employeeId),
+        )
+        .where(
+          and(
+            eq(employeeAttendanceStatistics.month, month),
+            eq(employeeAttendanceStatistics.year, year),
+          ),
+        );
+
+      return res.status(200).json({
+        success: true,
+        message: "Statistik kehadiran berhasil diambil",
+        total: data.length,
+        data,
+      });
+    } catch (error) {
+      console.error("Get Attendance Statistics Error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Gagal mengambil statistik kehadiran",
+      });
+    }
+  };
+
+  // GET statistik berdasarkan employee ID.
+  getEmployeeAttendanceStatistics = async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.user?.userId || req.user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Akses hanya untuk HR",
+        });
+      }
+
+      const employeeId = String(req.params);
+
+      const month = Number(req.query.month);
+      const year = Number(req.query.year);
+
+      if (
+        !employeeId ||
+        !Number.isInteger(month) ||
+        month < 1 ||
+        month > 12 ||
+        !Number.isInteger(year) ||
+        year < 2000
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Parameter employeeId, month, atau year tidak valid",
+        });
+      }
+
+      const [data] = await db
+        .select({
+          id: employeeAttendanceStatistics.id,
+          employeeId: employeeAttendanceStatistics.employeeId,
+          firstName: employes.firstName,
+          lastName: employes.lastName,
+          month: employeeAttendanceStatistics.month,
+          year: employeeAttendanceStatistics.year,
+          totalEffectiveDays: employeeAttendanceStatistics.totalEffectiveDays,
+          totalPresent: employeeAttendanceStatistics.totalPresent,
+          totalAlpha: employeeAttendanceStatistics.totalAlpha,
+          totalPermission: employeeAttendanceStatistics.totalPermission,
+          totalOvertime: employeeAttendanceStatistics.totalOvertime,
+          totalLate: employeeAttendanceStatistics.totalLate,
+        })
+        .from(employeeAttendanceStatistics)
+        .innerJoin(
+          employes,
+          eq(employeeAttendanceStatistics.employeeId, employes.employeeId),
+        )
+        .where(
+          and(
+            eq(employeeAttendanceStatistics.employeeId, employeeId),
+            eq(employeeAttendanceStatistics.month, month),
+            eq(employeeAttendanceStatistics.year, year),
+          ),
+        )
+        .limit(1);
+
+      if (!data) {
+        return res.status(404).json({
+          success: false,
+          message: "Statistik karyawan tidak ditemukan",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Statistik karyawan berhasil diambil",
+        data,
+      });
+    } catch (error) {
+      console.error("Get Employee Attendance Statistics Error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Gagal mengambil statistik karyawan",
+      });
+    }
+  };
+
+  HROvertime = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(401).json({
+          success: false,
+          message: "tidak di izinkan mengakses endpoint ini",
+        });
+      }
+
+      const validation = overtimeHRSchema.parse(req.body);
+
+      const { id_employee, overtimeDate, overtimeTotal, description } =
+        validation;
+
+      const insertOvertime = await db
+        .insert(overtime)
+        .values({
+          id_employee: id_employee,
+          overtimeDate: new Date(overtimeDate),
+          overtimeTotal: overtimeTotal,
+          description: description,
+          approved_by: user.userId,
+          status: "accepted",
+        })
+        .returning();
+
+      return res.status(201).json({
+        success: true,
+        message: "Pengajuan lembur berhasil dibuat",
+        data: insertOvertime[0],
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: error.flatten().fieldErrors,
+        });
+      }
+
+      console.error(error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada server",
+      });
+    }
+  };
 }
 export default new HRfeatures();

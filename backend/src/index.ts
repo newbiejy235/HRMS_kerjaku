@@ -10,6 +10,9 @@ import QRgenerate from "../src/routes/attendance.route";
 import aiAnalisis from "../src/routes/reportAi.route";
 import employeePermission from "../src/routes/permission.routes";
 import financeRoutes from "./routes/finance.routes";
+import dataStatistic from "./routes/statistic.routes"
+import location from "./routes/attendanceLocaation.routes"
+import reimbursements from "./routes/reimburse.routes"
 
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./lib/documentation_api/swagger";
@@ -38,6 +41,9 @@ app.use("/attendance", QRgenerate);
 app.use("/report-analyst", aiAnalisis);
 app.use("/permission", employeePermission);
 app.use("/finance", financeRoutes);
+app.use("/statistic", dataStatistic);
+app.use("/employee/loation", location);
+app.use("/reimbursements", reimbursements);
 
 app.get("/", (req, res) => {
   res.send("Hello Express + TypeScript!");
