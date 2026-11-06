@@ -129,12 +129,19 @@ export const passwordResetRequests = pgTable("password_reset_requests", {
   }),
 });
 
+export const attendanceStatus = pgEnum("attendance_status", [
+  "on time",
+  "late",
+  "tolerance time",
+]);
+
 export const employeeAttendance = pgTable("attendance", {
   shiftId: integer().primaryKey().generatedAlwaysAsIdentity(),
   shiftDate: date().notNull(),
   employeeIn: time(),
   employeeOut: time(),
   employeeLocate: text(),
+  status: attendanceStatus(),
   id_employee: varchar()
     .notNull()
     .references(() => employes.employeeId),
