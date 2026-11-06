@@ -418,3 +418,51 @@ export const attendanceLocation = pgTable("attendance_location", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const reimbursementStatus = pgEnum("reimbursement_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
+
+export const employeeReimbursements = pgTable("employee_reimbursements", {
+  id: serial("id").primaryKey(),
+
+  // Karyawan yang mengajukan
+  employeeId: varchar("employee_id")
+    .notNull()
+    .references(() => employes.employeeId, {
+      onDelete: "cascade",
+    }),
+
+  // Informasi pengajuan
+  name: varchar("name", { length: 255 }).notNull(),
+
+  description: text("description"),
+
+  amount: numeric("amount", {
+    precision: 12,
+    scale: 2,
+  }).notNull(),
+
+  // Foto bukti transaksi
+  receiptPhoto: text("receipt_photo").notNull(),
+
+  expenseDate: date("expense_date").notNull(),
+
+  // Status pengajuan
+  status: reimbursementStatus("status").default("pending").notNull(),
+
+  // Review oleh HR
+  reviewBy: integer("review_by").references(() => usersTable.id, {
+    onDelete: "set null",
+  }),
+
+  reviewedAt: timestamp("reviewed_at"),
+
+  rejectionReason: text("rejection_reason"),
+
+  // Timestamp
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
