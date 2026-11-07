@@ -24,11 +24,14 @@ import crypto from "node:crypto";
 import { ZodError } from "zod";
 import { calculateDistance } from "../../lib/location";
 import { id } from "zod/locales";
-import  TelegramService  from "../../services/notification.service";
+import TelegramService from "../../services/notification.service";
 // import TelegramService from "../../services/notification.service";
 
 // const escapeHtml = (s: string) =>
 //   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 export class EmployeeFeatures {
   employeeProfile = async (req: AuthRequest, res: Response) => {
@@ -510,8 +513,6 @@ export class EmployeeFeatures {
           permit_reason,
         })
         .returning();
-      const escapeHtml = (s: string) =>
-        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
       const hrList = await db
         .select({
@@ -537,7 +538,12 @@ export class EmployeeFeatures {
           `Haloo ${escapeHtml(hr.firstName)} 👋`,
           "",
           "Kamu mendapat notifikasi pengajuan reimburse dari karyawan nih:",
-          `📆 Tanggal: ${expenseDate}`,
+          `📆 Tanggal: ${start_date} - ${end_date}`,
+          "",
+          `📔 kaategori: ${permit_type}`,
+          "",
+          "📩 reason:",
+          `${permit_reason}`,
           "",
           "Pengajuan dibuat oleh:",
           `${insertPermission.id_employee}`,
@@ -551,7 +557,6 @@ export class EmployeeFeatures {
       return res.status(201).json({
         success: true,
         message: "Pengajuan izin berhasil dibuat",
-        data: insertPermission[0],
       });
     } catch (error) {
       if (error instanceof ZodError) {
@@ -608,40 +613,42 @@ export class EmployeeFeatures {
         })
         .returning();
 
-      // // data karyawan yang mengajukan (buat nama di notif)
-      // const [data] = await db
-      //   .select({
-      //     firstName: employes.firstName,
-      //     lastName: employes.lastName,
-      //   })
-      //   .from(employes)
-      //   .where(eq(employes.employeeId, userAccount.employee_code));
+      const hrList = await db
+        .select({
+          telegramChatId: employes.telegramChatId,
+          firstName: employes.firstName,
+        })
+        .from(employes)
+        .innerJoin(usersTable, eq(usersTable.id, employes.userId))
+        .where(
+          and(
+            eq(usersTable.role, "HR"),
+            isNotNull(employes.telegramChatId),
+            ne(employes.telegramChatId, ""),
+          ),
+        );
 
-      // // semua HR yang sudah aktifin bot telegram
-      // const hrList = await db
-      //   .select({ telegramChatId: employes.telegramChatId })
-      //   .from(usersTable)
-      //   .innerJoin(employes, eq(employes.userId, usersTable.id))
-      //   .where(
-      //     and(eq(usersTable.role, "HR"), isNotNull(employes.telegramChatId)),
-      //   );
+      for (const hr of hrList) {
+        if (!hr.telegramChatId) continue;
 
-      // const message = [
-      //   "<b>Pengajuan lembur baru</b>",
-      //   "",
-      //   `Karyawan: ${escapeHtml(`${data.firstName} ${data.lastName ?? ""}`.trim())} (${userAccount.employee_code})`,
-      //   `📆 Tanggal: ${overtimeDate}`,
-      //   `⏱️ Total lembur: ${overtimeTotal}`,
-      //   `📝 Keterangan: ${escapeHtml(description ?? "-")}`,
-      //   "",
-      //   "Silakan direspons di sistem.",
-      // ].join("\n");
+        const message = [
+          "<b>Pesan dari Kerjaku</b>",
+          "",
+          `Haloo ${escapeHtml(hr.firstName)} 👋`,
+          "",
+          "Kamu mendapat notifikasi pengajuan lembur dari karyawan nih:",
+          `📆 Tanggal: ${overtimeDate}`,
+          "",
+          `⏱️ Durasi lembur: ${overtimeTotal} Jam`,
+          "",
+          "Pengajuan dibuat oleh:",
+          `${userAccount.employee_code}`,
+          "",
+          "<b>Segera tanggapi pengajuan dari karyawan</b>",
+        ].join("\n");
 
-      // await Promise.allSettled(
-      //   hrList.map((hr) =>
-      //     TelegramService.sendMessage(hr.telegramChatId!, message),
-      //   ),
-      // );
+        await TelegramService.sendMessage(hr.telegramChatId, message);
+      }
 
       return res.status(201).json({
         success: true,
