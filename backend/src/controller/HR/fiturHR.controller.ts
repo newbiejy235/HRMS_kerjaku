@@ -1274,10 +1274,6 @@ export class HRfeatures {
       const [data] = await db
         .select()
         .from(employeePermission)
-        .innerJoin(
-          employes,
-          eq(employeePermission.id_employee, employes.employeeId),
-        )
         .where(eq(employeePermission.id_permission, id_permission));
 
       if (!data) {
@@ -1287,22 +1283,30 @@ export class HRfeatures {
         });
       }
 
-      const employee = data.employes;
+      const employee = data.id_employee;
 
-      console.log(employee.employeeId);
-      console.log(employee.firstName);
-      console.log(employee.telegramChatId);
+      const [employeeAccount] = await db
+        .select()
+        .from(employes)
+        .where(eq(employes.employeeId, employee));
+
+      if (!employeeAccount) {
+        return res.status(404).json({
+          success: true,
+          message: "employee tidak ditemukan",
+        });
+      }
 
       const [HR] = await db
         .select()
         .from(usersTable)
         .where(eq(usersTable.id, user.userId));
 
-      if (data.employes.telegramChatId) {
+      if (employeeAccount.telegramChatId) {
         const message = [
           "<b>Balasan izin kamu</b>",
           "",
-          `Haloo ${escapeHtml(data.employes.firstName)} 👋`,
+          `Haloo ${escapeHtml(employeeAccount.firstName)} 👋`,
           "",
           "",
           "HR telah meresponse permintaan kamu,",
@@ -1311,7 +1315,10 @@ export class HRfeatures {
           `Disetujui/ditolak oleh : ${HR.email}`,
         ].join("\n");
 
-        await TelegramService.sendMessage(data.employes.telegramChatId, message);
+        await TelegramService.sendMessage(
+          employeeAccount.telegramChatId,
+          message,
+        );
       }
 
       return res.status(201).json({
