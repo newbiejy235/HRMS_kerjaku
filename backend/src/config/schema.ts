@@ -65,6 +65,13 @@ export const employes = pgTable("employes", {
   gender: gender_status("gender").notNull(),
   noTelp: varchar("no_telp", { length: 20 }),
   telegramChatId: varchar("telegram_chat_id", { length: 100 }),
+  telegramPairingToken: varchar("telegram_pairing_token", {
+    length: 64,
+  }).unique(),
+
+  telegramPairingExpiresAt: timestamp("telegram_pairing_expires_at", {
+    mode: "date",
+  }),
   cities_id: integer()
     .notNull()
     .references(() => cities.id),
