@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNotNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, ne } from "drizzle-orm";
 import { Request, Response } from "express";
 import { db } from "../../config/db";
 import {
@@ -24,11 +24,11 @@ import crypto from "node:crypto";
 import { ZodError } from "zod";
 import { calculateDistance } from "../../lib/location";
 import { id } from "zod/locales";
+import  TelegramService  from "../../services/notification.service";
 // import TelegramService from "../../services/notification.service";
- 
+
 // const escapeHtml = (s: string) =>
 //   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
 
 export class EmployeeFeatures {
   employeeProfile = async (req: AuthRequest, res: Response) => {
@@ -190,7 +190,7 @@ export class EmployeeFeatures {
           qrCode,
           token,
           expiresAt,
-          usersTable
+          usersTable,
         },
       });
     } catch (error) {
@@ -199,7 +199,7 @@ export class EmployeeFeatures {
       return res.status(500).json({
         success: false,
         message: "Gagal membuat QR Code",
-        alert: 'Gagal Buat Qr Code' 
+        alert: "Gagal Buat Qr Code",
       });
     }
   };
@@ -500,7 +500,7 @@ export class EmployeeFeatures {
 
       const { start_date, end_date, permit_type, permit_reason } = validation;
 
-      const insertPermission = await db
+      const [insertPermission] = await db
         .insert(employeePermission)
         .values({
           id_employee: userAccount.employee_code,
@@ -510,6 +510,43 @@ export class EmployeeFeatures {
           permit_reason,
         })
         .returning();
+      const escapeHtml = (s: string) =>
+        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+      const hrList = await db
+        .select({
+          telegramChatId: employes.telegramChatId,
+          firstName: employes.firstName,
+        })
+        .from(employes)
+        .innerJoin(usersTable, eq(usersTable.id, employes.userId))
+        .where(
+          and(
+            eq(usersTable.role, "HR"),
+            isNotNull(employes.telegramChatId),
+            ne(employes.telegramChatId, ""),
+          ),
+        );
+
+      for (const hr of hrList) {
+        if (!hr.telegramChatId) continue;
+
+        const message = [
+          "<b>Pesan dari Kerjaku</b>",
+          "",
+          `Haloo ${escapeHtml(hr.firstName)} 👋`,
+          "",
+          "Kamu mendapat notifikasi pengajuan reimburse dari karyawan nih:",
+          `📆 Tanggal: ${expenseDate}`,
+          "",
+          "Pengajuan dibuat oleh:",
+          `${insertPermission.id_employee}`,
+          "",
+          "<b>Segera tanggapi pengajuan dari karyawan</b>",
+        ].join("\n");
+
+        await TelegramService.sendMessage(hr.telegramChatId, message);
+      }
 
       return res.status(201).json({
         success: true,
@@ -727,4 +764,3 @@ export class EmployeeFeatures {
 }
 
 export default new EmployeeFeatures();
-

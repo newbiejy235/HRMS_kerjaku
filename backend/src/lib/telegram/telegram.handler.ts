@@ -11,8 +11,6 @@ bot.onText(/^\/start$/, async (msg) => {
 
   saveChatId(telegramUserId, chatId);
 
-  console.log("Telegram Chat ID:", chatId);
-
   await bot.sendMessage(
     chatId,
     `
