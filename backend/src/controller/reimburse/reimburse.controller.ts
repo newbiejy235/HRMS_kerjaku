@@ -8,10 +8,11 @@ import {
   usersTable,
 } from "../../config/schema";
 
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, ne, isNotNull } from "drizzle-orm";
 
 import cloudinary from "../../lib/cloudinary";
 import { uploadReimbursePhoto } from "../../lib/uploadReimburse";
+import TelegramService from "../../services/notification.service";
 
 export class ReimbursementController {
   // POST: Create Reimbursement
@@ -75,6 +76,44 @@ export class ReimbursementController {
           status: "pending",
         })
         .returning();
+
+      const escapeHtml = (s: string) =>
+        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+      const hrList = await db
+        .select({
+          telegramChatId: employes.telegramChatId,
+          firstName: employes.firstName,
+        })
+        .from(employes)
+        .innerJoin(usersTable, eq(usersTable.id, employes.userId))
+        .where(
+          and(
+            eq(usersTable.role, "HR"),
+            isNotNull(employes.telegramChatId),
+            ne(employes.telegramChatId, ""),
+          ),
+        );
+
+      for (const hr of hrList) {
+        if (!hr.telegramChatId) continue;
+
+        const message = [
+          "<b>Pesan dari Kerjaku</b>",
+          "",
+          `Haloo ${escapeHtml(hr.firstName)} 👋`,
+          "",
+          "Kamu mendapat notifikasi pengajuan reimburse dari karyawan nih:",
+          `📆 Tanggal: ${expenseDate}`,
+          "",
+          "Pengajuan dibuat oleh:",
+          `${reimbursement.employeeId}`,
+          "",
+          "<b>Segera tanggapi pengajuan dari karyawan</b>",
+        ].join("\n");
+
+        await TelegramService.sendMessage(hr.telegramChatId, message);
+      }
 
       return res.status(201).json({
         success: true,
@@ -229,6 +268,39 @@ export class ReimbursementController {
           success: false,
           message: `Reimburse sudah direview dengan status ${existingReimbursement.status}`,
         });
+      }
+
+      const [employee] = await db
+        .select()
+        .from(employes)
+        .where(eq(employes.employeeId, updatedReimbursement.employeeId))
+        .limit(1);
+
+      const [HR] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+
+      const escapeHtml = (s: string) =>
+        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+      if (employee.telegramChatId) {
+        const message = [
+          "<b>Pesan tanggapan reimbursement dari Kerjaku</b>",
+          "",
+          `Haloo ${escapeHtml(employee.firstName)} 👋`,
+          "",
+          "pengajuan reimbursement telah:",
+          `📝 Status: ${updatedReimbursement.status}`,
+          "",
+          "Disetujui/ditolak oleh:",
+          `${HR.email}`,
+          "",
+          "<b>...............</b>",
+        ].join("\n");
+
+        await TelegramService.sendMessage(employee.telegramChatId, message);
       }
 
       return res.status(200).json({
