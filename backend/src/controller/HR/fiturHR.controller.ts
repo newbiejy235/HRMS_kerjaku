@@ -810,6 +810,11 @@ export class HRfeatures {
         });
       }
 
+      const [HR] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, user.userId));
+
       const upcomingText = info.upcomingShiftDate
         ? [
             `📆 Tanggal: ${info.upcomingShiftDate}`,
@@ -818,7 +823,7 @@ export class HRfeatures {
         : "Belum ada jadwal shift selanjutnya";
 
       const message = [
-        "<b>Jadwal shift kamu</b>",
+        `<b>Jadwal shift kamu telah diubah oleh : ${HR.email} </b>`,
         "",
         `Haloo ${escapeHtml(info.firstName)} 👋`,
         "",
@@ -1265,6 +1270,49 @@ export class HRfeatures {
           approved_by: user.userId,
         })
         .where(eq(employeePermission.id_permission, id_permission));
+
+      const [data] = await db
+        .select()
+        .from(employeePermission)
+        .innerJoin(
+          employes,
+          eq(employeePermission.id_employee, employes.employeeId),
+        )
+        .where(eq(employeePermission.id_permission, id_permission));
+
+      if (!data) {
+        return res.status(404).json({
+          success: false,
+          message: "Data permission tidak ditemukan",
+        });
+      }
+
+      const employee = data.employes;
+
+      console.log(employee.employeeId);
+      console.log(employee.firstName);
+      console.log(employee.telegramChatId);
+
+      const [HR] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, user.userId));
+
+      if (data.employes.telegramChatId) {
+        const message = [
+          "<b>Balasan izin kamu</b>",
+          "",
+          `Haloo ${escapeHtml(data.employes.firstName)} 👋`,
+          "",
+          "",
+          "HR telah meresponse permintaan kamu,",
+          `Keputusan HR : ${status} `,
+          "",
+          `Disetujui/ditolak oleh : ${HR.email}`,
+        ].join("\n");
+
+        await TelegramService.sendMessage(data.employes.telegramChatId, message);
+      }
 
       return res.status(201).json({
         success: true,
@@ -2142,7 +2190,7 @@ export class HRfeatures {
       const { id_employee, overtimeDate, overtimeTotal, description } =
         validation;
 
-      const insertOvertime = await db
+      const [insertOvertime] = await db
         .insert(overtime)
         .values({
           id_employee: id_employee,
@@ -2154,10 +2202,37 @@ export class HRfeatures {
         })
         .returning();
 
+      const [employee] = await db
+        .select()
+        .from(employes)
+        .where(eq(employes.employeeId, id_employee));
+      const [HR] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, user.userId));
+      if (employee.telegramChatId) {
+        const message = [
+          "<b>Pesan dari Kerjaku</b>",
+          "",
+          `Haloo ${escapeHtml(employee.firstName)} 👋`,
+          "",
+          "Kamu mendapat jadwal lembur dari HR nih:",
+          `📆 Tanggal & waktu: ${insertOvertime.overtimeDate}`,
+          `⏱️ waktu lembur: ${insertOvertime.overtimeTotal} JAM`,
+          "",
+          "Lembur diberikan oleh:",
+          `${HR.email}`,
+          "",
+          "<b>Semangat yaa... 😁</b>",
+        ].join("\n");
+
+        await TelegramService.sendMessage(employee.telegramChatId, message);
+      }
+
       return res.status(201).json({
         success: true,
         message: "Pengajuan lembur berhasil dibuat",
-        data: insertOvertime[0],
+        data: insertOvertime,
       });
     } catch (error) {
       if (error instanceof ZodError) {

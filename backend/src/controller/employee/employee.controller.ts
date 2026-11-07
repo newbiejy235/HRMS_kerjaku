@@ -23,10 +23,11 @@ import QRCode from "qrcode";
 import crypto from "node:crypto";
 import { ZodError } from "zod";
 import { calculateDistance } from "../../lib/location";
-import TelegramService from "../../services/notification.service";
+import { id } from "zod/locales";
+// import TelegramService from "../../services/notification.service";
 
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// const escapeHtml = (s: string) =>
+//   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 
 export class EmployeeFeatures {
@@ -162,6 +163,7 @@ export class EmployeeFeatures {
       // 4. Generate QR Code
       const qrCode = await QRCode.toDataURL(
         JSON.stringify({
+          id: 1,
           type: "KERJAKU_ATTENDANCE",
           token: token,
         }),
@@ -188,6 +190,7 @@ export class EmployeeFeatures {
           qrCode,
           token,
           expiresAt,
+          usersTable
         },
       });
     } catch (error) {
@@ -196,6 +199,7 @@ export class EmployeeFeatures {
       return res.status(500).json({
         success: false,
         message: "Gagal membuat QR Code",
+        alert: 'Gagal Buat Qr Code' 
       });
     }
   };
@@ -567,40 +571,40 @@ export class EmployeeFeatures {
         })
         .returning();
 
-      // data karyawan yang mengajukan (buat nama di notif)
-      const [data] = await db
-        .select({
-          firstName: employes.firstName,
-          lastName: employes.lastName,
-        })
-        .from(employes)
-        .where(eq(employes.employeeId, userAccount.employee_code));
+      // // data karyawan yang mengajukan (buat nama di notif)
+      // const [data] = await db
+      //   .select({
+      //     firstName: employes.firstName,
+      //     lastName: employes.lastName,
+      //   })
+      //   .from(employes)
+      //   .where(eq(employes.employeeId, userAccount.employee_code));
 
-      // semua HR yang sudah aktifin bot telegram
-      const hrList = await db
-        .select({ telegramChatId: employes.telegramChatId })
-        .from(usersTable)
-        .innerJoin(employes, eq(employes.userId, usersTable.id))
-        .where(
-          and(eq(usersTable.role, "HR"), isNotNull(employes.telegramChatId)),
-        );
+      // // semua HR yang sudah aktifin bot telegram
+      // const hrList = await db
+      //   .select({ telegramChatId: employes.telegramChatId })
+      //   .from(usersTable)
+      //   .innerJoin(employes, eq(employes.userId, usersTable.id))
+      //   .where(
+      //     and(eq(usersTable.role, "HR"), isNotNull(employes.telegramChatId)),
+      //   );
 
-      const message = [
-        "<b>Pengajuan lembur baru</b>",
-        "",
-        `Karyawan: ${escapeHtml(`${data.firstName} ${data.lastName ?? ""}`.trim())} (${userAccount.employee_code})`,
-        `📆 Tanggal: ${overtimeDate}`,
-        `⏱️ Total lembur: ${overtimeTotal}`,
-        `📝 Keterangan: ${escapeHtml(description ?? "-")}`,
-        "",
-        "Silakan direspons di sistem.",
-      ].join("\n");
+      // const message = [
+      //   "<b>Pengajuan lembur baru</b>",
+      //   "",
+      //   `Karyawan: ${escapeHtml(`${data.firstName} ${data.lastName ?? ""}`.trim())} (${userAccount.employee_code})`,
+      //   `📆 Tanggal: ${overtimeDate}`,
+      //   `⏱️ Total lembur: ${overtimeTotal}`,
+      //   `📝 Keterangan: ${escapeHtml(description ?? "-")}`,
+      //   "",
+      //   "Silakan direspons di sistem.",
+      // ].join("\n");
 
-      await Promise.allSettled(
-        hrList.map((hr) =>
-          TelegramService.sendMessage(hr.telegramChatId!, message),
-        ),
-      );
+      // await Promise.allSettled(
+      //   hrList.map((hr) =>
+      //     TelegramService.sendMessage(hr.telegramChatId!, message),
+      //   ),
+      // );
 
       return res.status(201).json({
         success: true,
