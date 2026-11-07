@@ -445,7 +445,7 @@ export const employeeReimbursements = pgTable("employee_reimbursements", {
   }).notNull(),
 
   // Foto bukti transaksi
-  receiptPhoto: text("receipt_photo").notNull(),
+  receiptPhoto: text("receipt_photo"),
 
   expenseDate: date("expense_date").notNull(),
 

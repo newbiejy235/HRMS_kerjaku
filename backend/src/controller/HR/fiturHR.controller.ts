@@ -1380,12 +1380,12 @@ export class HRfeatures {
 
       if (data.telegramChatId) {
         const message = [
-          "<b>Jadwal shift kamu</b>",
+          "<b>permintaan lembur</b>",
           "",
           `Haloo ${escapeHtml(data.firstName)} 👋`,
           "",
           "",
-          "HR telah meresponse permintaan kamu,",
+          "HR telah meresponse permintaan lembur kamu,",
           `Keputusan HR : ${status} `,
           "",
         ].join("\n");

@@ -16,7 +16,7 @@ export class TelegramService {
 
       return {
         success: false,
-        message: "Gagal mengirim pesan Telegram",
+        message: error ?? "",
       };
     }
   }
