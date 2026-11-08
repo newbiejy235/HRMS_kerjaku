@@ -18,10 +18,6 @@ export const activationBot = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    console.log("Content-Type:", req.headers["content-type"]);
-    console.log("Body:", req.body);
-    console.log("User:", req.user);
-
     // Ini harus menggunakan ID Telegram yang sudah
     // dikaitkan dengan akun melalui proses verifikasi.
 

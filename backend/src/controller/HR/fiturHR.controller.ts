@@ -132,9 +132,31 @@ export class HRfeatures {
     }
   };
 
-  reviewForgetPassword = async (req: Request, res: Response) => {
+  reviewForgetPassword = async (req: AuthRequest, res: Response) => {
     try {
-      const { requestId, reviewedBy, status } = hrReviewSchema.parse(req.body);
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      // Validasi hak akses berdasarkan pengguna yang login
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan mengakses data karyawan",
+        });
+      }
+
+      const [isHR] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, user.userId));
+
+      const { requestId, status } = hrReviewSchema.parse(req.body);
 
       // Cari request yang masih pending
       const existingRequest = await db
@@ -163,7 +185,7 @@ export class HRfeatures {
         .update(passwordResetRequests)
         .set({
           status: status,
-          reviewedBy: reviewedBy,
+          reviewedBy: isHR.id,
           reviewedAt: new Date(),
         })
         .where(eq(passwordResetRequests.id, requestId));
@@ -204,7 +226,7 @@ export class HRfeatures {
             token: tokenHash,
             expiresAt,
             usedAt: null,
-            reviewedBy,
+            reviewedBy: isHR.id,
             reviewedAt: new Date(),
           })
           .where(eq(passwordResetRequests.id, requestId));
@@ -329,11 +351,11 @@ export class HRfeatures {
           gender: true,
           noTelp: true,
           noRek: true,
-          BPJS_Kesehatan : true,
-          BPJS_Ketenagakerjaan : true,
-          NPWP : true,
-          employment_status : true,
-          resign_date : true,
+          BPJS_Kesehatan: true,
+          BPJS_Ketenagakerjaan: true,
+          NPWP: true,
+          employment_status: true,
+          resign_date: true,
           cities_id: true,
           idPosition: true,
           idDepartment: true,
@@ -459,7 +481,7 @@ export class HRfeatures {
         data: updated,
       });
     } catch (error) {
-      console.log(error);
+ 
       return res.status(500).json({
         success: false,
         message: "internal server error",
@@ -1466,7 +1488,7 @@ export class HRfeatures {
         message: "berhasil menambahkan component",
       });
     } catch (error) {
-      console.log(error);
+   
       return res.status(500).json({
         success: false,
         message: "internal server error",
@@ -1523,7 +1545,6 @@ export class HRfeatures {
         data: updateData[0],
       });
     } catch (error) {
-      console.log(error);
       return res.status(500).json({
         success: false,
         message: "internal server error",

@@ -10,13 +10,18 @@ import {
 } from "../config/schema";
 import { employe } from "../validation/employe.validation";
 import { loginSchema, registerSchema } from "../validation/auth.validation";
-import { forgotPasswordSchema, resetPasswordSchema, employeeResetPasswordSchema } from "../validation/verification.validation";
+import {
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  employeeResetPasswordSchema,
+} from "../validation/verification.validation";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { ZodError } from "zod";
 import dotenv from "dotenv";
+import TelegramService from "../services/notification.service";
 
 // Generate employee code yang unik terhadap DB
 async function generateEmployeeCode(): Promise<string> {
@@ -202,7 +207,6 @@ export class Authentication {
         },
       });
     } catch (error) {
-      console.log(error);
 
       return res.status(500).json({
         success: false,
@@ -226,7 +230,8 @@ export class Authentication {
         // Return success message generik untuk menghindari user enumeration
         return res.status(200).json({
           success: true,
-          message: "Jika email terdaftar, permintaan reset password telah dikirim",
+          message:
+            "Jika email terdaftar, permintaan reset password telah dikirim",
         });
       }
 
@@ -241,10 +246,53 @@ export class Authentication {
         status: "pending",
       });
 
+      const [isUser] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.email, email));
+
+      const hrList = await db
+        .select({
+          telegramChatId: employes.telegramChatId,
+          firstName: employes.firstName,
+        })
+        .from(employes)
+        .innerJoin(usersTable, eq(usersTable.id, employes.userId))
+        .where(
+          and(
+            eq(usersTable.role, "HR"),
+            isNotNull(employes.telegramChatId),
+            ne(employes.telegramChatId, ""),
+          ),
+        );
+
+      const escapeHtml = (s: string) =>
+        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+      for (const hr of hrList) {
+        if (!hr.telegramChatId) continue;
+
+        const message = [
+          "<b>Pesan dari Kerjaku</b>",
+          "",
+          `Haloo ${escapeHtml(hr.firstName)} 👋`,
+          "",
+          "Kamu mendapat notifikasi pengajuan reset password dari karyawan nih:",
+          "",
+          "Pengajuan dibuat oleh:",
+          `${isUser.email}`,
+          "",
+          "<b>Segera tanggapi pengajuan dari karyawan</b>",
+        ].join("\n");
+
+        await TelegramService.sendMessage(hr.telegramChatId, message);
+      }
+
       // Response generic - tidak mengirim token atau mengungkap status
       return res.status(200).json({
         success: true,
-        message: "Jika email terdaftar, permintaan reset password telah dikirim",
+        message:
+          "Jika email terdaftar, permintaan reset password telah dikirim",
       });
     } catch (error: any) {
       if (error instanceof ZodError) {
@@ -280,7 +328,7 @@ export class Authentication {
 
       let foundRequest = null;
       for (const req of allRequests) {
-        if (req.token && await bcrypt.compare(token, req.token)) {
+        if (req.token && (await bcrypt.compare(token, req.token))) {
           foundRequest = req;
           break;
         }
@@ -294,7 +342,10 @@ export class Authentication {
       }
 
       // Cek jika token sudah kedaluwarsa
-      if (foundRequest.expiresAt && new Date(foundRequest.expiresAt) < new Date()) {
+      if (
+        foundRequest.expiresAt &&
+        new Date(foundRequest.expiresAt) < new Date()
+      ) {
         return res.status(400).json({
           success: false,
           message: "Token telah kadaluwarsa",

@@ -21,14 +21,12 @@ const settingsShift = async (
       normal_time_out: timeOut,
     });
 
-    console.log("jadwal berhasil dimasukan");
     return {
       category,
       normal_time_in: timeIn,
       normal_time_out: timeOut,
     };
   } catch (error) {
-    console.log(error);
     return {
       category,
       normal_time_in: timeIn,

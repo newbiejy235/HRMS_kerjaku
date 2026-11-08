@@ -146,11 +146,19 @@ export class EmployeeFeatures {
   generateAttendanceQr = async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user?.userId;
+      const user = req.user?.role
 
       if (!userId) {
         return res.status(401).json({
           success: false,
           message: "Sesi tidak valid",
+        });
+      }
+
+      if (user !== "HR") {
+        return res.status(401).json({
+          success: false,
+          message: "tidak dizinkan mengakses ini",
         });
       }
 
@@ -713,14 +721,13 @@ export class EmployeeFeatures {
         });
       }
 
-      console.log(user.userId);
+
       const [userAccount] = await db
         .select()
         .from(employes)
         .where(eq(employes.userId, user.userId))
         .limit(1);
 
-      console.log(userAccount);
 
       // Ambil payroll berdasarkan ID
       const [payrollData] = await db
