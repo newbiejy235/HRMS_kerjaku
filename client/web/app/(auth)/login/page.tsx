@@ -215,6 +215,9 @@ export default function LoginPage() {
     if (token && role === "HR") {
       router.replace("/hr/dashboard");
     }
+    if (token && role === "Finance") {
+      router.replace("/finance/dashboard");
+    }
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = setInterval(() => setLangkah((l) => l + 1), INTERVAL_MS);
     return () => clearInterval(timer);
