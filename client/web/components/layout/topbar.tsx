@@ -133,7 +133,9 @@ export function Topbar({ onMenuClick, role }: TopbarProps) {
                 <p className="text-sm font-medium leading-none text-slate-900">
                   {dataUsers.email}
                 </p>
-                <p className="text-xs text-slate-500 mt-1 text-left">Role : {dataUsers.role}</p>
+                <p className="text-xs text-slate-500 mt-1 text-left">
+                  {dataUsers.role == "HR" ? "Human resource" : dataUsers.role}
+                </p>
               </div>
             ) : (
               <p>Loading...</p>
@@ -143,7 +145,7 @@ export function Topbar({ onMenuClick, role }: TopbarProps) {
             <AvatarFallback className="bg-emerald-50 text-emerald-800 text-xs font-medium">
               {" "}
               {/* <-- Ubah Avatar BG */}
-              {role === "hr" ? "RW" : "AP"}
+              {dataUsers?.role === "HR" ? "HR" : "FN"}
             </AvatarFallback>
           </Avatar>
         </div>
