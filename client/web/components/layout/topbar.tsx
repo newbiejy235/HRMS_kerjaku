@@ -19,12 +19,28 @@ interface PairingResponse {
   message: string;
 }
 
+interface UserType {
+  email: string;
+  role: string;
+}
+
 export function Topbar({ onMenuClick, role }: TopbarProps) {
   const [pairingURL, setPairingURL] = useState<PairingResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [dataUsers, setDataUsers] = useState<UserType | null>(null);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
+    const dataEmail = localStorage.getItem("email");
+    const dataRole = localStorage.getItem("role");
+
+    const getDataUsers = () => {
+      if (dataEmail && dataRole) {
+        setDataUsers({ email: dataEmail, role: dataRole });
+      }
+    };
+
     const start = async () => {
       try {
         const response = await fetch(
@@ -54,6 +70,7 @@ export function Topbar({ onMenuClick, role }: TopbarProps) {
       }
     };
     start();
+    getDataUsers();
   }, []);
 
   const toggleURL = () => {
@@ -96,7 +113,11 @@ export function Topbar({ onMenuClick, role }: TopbarProps) {
           className="mr-4 h-10 gap-2 rounded-lg bg-[#008F68] px-4 font-semibold text-white shadow-md shadow-emerald-700/20 transition-all hover:bg-[#007A59] hover:shadow-lg active:scale-95 disabled:opacity-50"
         >
           <Send className="h-4 w-4" />
-          Hubungkan Telegram
+          {pairingURL?.connected ? (
+            <h1>terhubung dengan telegram</h1>
+          ) : (
+            <h1>Hubungkan dengan telegram</h1>
+          )}
         </Button>
         <Button variant="ghost" size="icon" className="text-slate-500 relative">
           <Bell className="h-5 w-5" />
@@ -107,12 +128,16 @@ export function Topbar({ onMenuClick, role }: TopbarProps) {
 
         <div className="flex items-center gap-3 cursor-pointer">
           <div className="hidden text-right md:block">
-            <p className="text-sm font-medium leading-none text-slate-900">
-              {role === "hr" ? "Rina Wijaya" : "Andi Pratama"}
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              {role === "hr" ? "HR Manager" : "Finance Staff"}
-            </p>
+            {dataUsers ? (
+              <div>
+                <p className="text-sm font-medium leading-none text-slate-900">
+                  {dataUsers.email}
+                </p>
+                <p className="text-xs text-slate-500 mt-1 text-left">Role : {dataUsers.role}</p>
+              </div>
+            ) : (
+              <p>Loading...</p>
+            )}
           </div>
           <Avatar className="h-8 w-8 border border-border">
             <AvatarFallback className="bg-emerald-50 text-emerald-800 text-xs font-medium">

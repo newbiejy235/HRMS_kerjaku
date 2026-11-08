@@ -18,18 +18,47 @@ type KartuPanel = {
 };
 
 const jalurPutar = [
-  [0, 0], [0, 1], [0, 2], [1, 2], [1, 1], [1, 0],
+  [0, 0],
+  [0, 1],
+  [0, 2],
+  [1, 2],
+  [1, 1],
+  [1, 0],
 ] as const;
 
 const kartuPanel: KartuPanel[] = [
-  { jenis: "tegas", label: "Hadir hari ini", nilai: "42 dari 48", ket: "Shift pagi dan siang", ikon: BadgeCheck },
+  {
+    jenis: "tegas",
+    label: "Hadir hari ini",
+    nilai: "42 dari 48",
+    ket: "Shift pagi dan siang",
+    ikon: BadgeCheck,
+  },
   { jenis: "kaca" },
-  { jenis: "tegas", label: "Periode gaji", nilai: "Oktober 2026", ket: "Menunggu Finance", ikon: Wallet },
-  { jenis: "terang", label: "Lembur bulan ini", nilai: "18,5 jam", ket: "Dari 6 karyawan", titik: "bawah" },
+  {
+    jenis: "tegas",
+    label: "Periode gaji",
+    nilai: "Oktober 2026",
+    ket: "Menunggu Finance",
+    ikon: Wallet,
+  },
+  {
+    jenis: "terang",
+    label: "Lembur bulan ini",
+    nilai: "18,5 jam",
+    ket: "Dari 6 karyawan",
+    titik: "bawah",
+  },
   { jenis: "kaca" },
-  { jenis: "terang", label: "Terlambat", nilai: "5 karyawan", ket: "Toleransi 10 menit", titik: "atas" },
+  {
+    jenis: "terang",
+    label: "Terlambat",
+    nilai: "5 karyawan",
+    ket: "Toleransi 10 menit",
+    titik: "atas",
+  },
 ];
-  
+
 const LAPISAN: Record<Jenis, number> = { terang: 1, kaca: 2, tegas: 3 };
 const INTERVAL_MS = 3000;
 const JARAK = "calc(var(--s) + var(--g))";
@@ -37,27 +66,36 @@ const JARAK = "calc(var(--s) + var(--g))";
 function validasi(field: Field, nilai: string) {
   if (field === "email") {
     if (!nilai) return "Email wajib diisi";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nilai)) return "Format email tidak valid";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nilai))
+      return "Format email tidak valid";
   }
   if (field === "password" && !nilai) return "Kata sandi wajib diisi";
   return "";
 }
 
-async function prosesLogin(email: string, password: string): Promise<{ tujuan?: string; galat?: string }> {
+async function prosesLogin(
+  email: string,
+  password: string,
+): Promise<{ tujuan?: string; galat?: string }> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      },
+    );
 
     const data = await response.json();
 
-    if (!response.ok) return { galat: data.message || "Email atau kata sandi salah" };
+    if (!response.ok)
+      return { galat: data.message || "Email atau kata sandi salah" };
 
     if (data.userData?.token) {
       localStorage.setItem("token", data.userData.token);
       localStorage.setItem("role", data.userData.role);
+      localStorage.setItem("email", data.userData.email);
     }
 
     const role = data.userData?.role;
@@ -66,11 +104,21 @@ async function prosesLogin(email: string, password: string): Promise<{ tujuan?: 
 
     return { galat: "Akun tidak memiliki akses ke aplikasi web." };
   } catch (error) {
-    return { galat: "Tidak dapat terhubung ke server. Pastikan backend berjalan." };
+    return {
+      galat: "Tidak dapat terhubung ke server. Pastikan backend berjalan.",
+    };
   }
 }
 
-function Kartu({ data, indeks, langkah }: { data: KartuPanel; indeks: number; langkah: number }) {
+function Kartu({
+  data,
+  indeks,
+  langkah,
+}: {
+  data: KartuPanel;
+  indeks: number;
+  langkah: number;
+}) {
   const [kolom, baris] = jalurPutar[(indeks + langkah) % jalurPutar.length];
   const Ikon = data.ikon;
   const gaya: Record<Jenis, string> = {
@@ -99,7 +147,8 @@ function Kartu({ data, indeks, langkah }: { data: KartuPanel; indeks: number; la
           style={{
             width: "62%",
             height: "40%",
-            backgroundImage: "radial-gradient(circle, rgba(5,150,105,0.28) 1.4px, transparent 1.6px)",
+            backgroundImage:
+              "radial-gradient(circle, rgba(5,150,105,0.28) 1.4px, transparent 1.6px)",
             backgroundSize: "calc(var(--s) * 0.095) calc(var(--s) * 0.095)",
           }}
         />
@@ -108,7 +157,10 @@ function Kartu({ data, indeks, langkah }: { data: KartuPanel; indeks: number; la
       {Ikon ? (
         <span
           className="flex items-center justify-center rounded-full bg-white text-emerald-700"
-          style={{ width: "calc(var(--s) * 0.2)", height: "calc(var(--s) * 0.2)" }}
+          style={{
+            width: "calc(var(--s) * 0.2)",
+            height: "calc(var(--s) * 0.2)",
+          }}
         >
           <Ikon className="h-[58%] w-[58%]" />
         </span>
@@ -118,13 +170,24 @@ function Kartu({ data, indeks, langkah }: { data: KartuPanel; indeks: number; la
 
       {data.label && (
         <div className="relative">
-          <p className={data.jenis === "tegas" ? "text-white/85" : "text-slate-500"} style={{ fontSize: "max(11px, calc(var(--s) * 0.075))" }}>
+          <p
+            className={
+              data.jenis === "tegas" ? "text-white/85" : "text-slate-500"
+            }
+            style={{ fontSize: "max(11px, calc(var(--s) * 0.075))" }}
+          >
             {data.label}
           </p>
-          <p className="mt-1 font-heading font-semibold leading-tight tabular-nums" style={{ fontSize: "max(18px, calc(var(--s) * 0.135))" }}>
+          <p
+            className="mt-1 font-heading font-semibold leading-tight tabular-nums"
+            style={{ fontSize: "max(18px, calc(var(--s) * 0.135))" }}
+          >
             {data.nilai}
           </p>
-          <p className={`mt-1 ${data.jenis === "tegas" ? "text-white/85" : "text-slate-500"}`} style={{ fontSize: "max(11px, calc(var(--s) * 0.072))" }}>
+          <p
+            className={`mt-1 ${data.jenis === "tegas" ? "text-white/85" : "text-slate-500"}`}
+            style={{ fontSize: "max(11px, calc(var(--s) * 0.072))" }}
+          >
             {data.ket}
           </p>
         </div>
@@ -146,6 +209,12 @@ export default function LoginPage() {
   const [langkah, setLangkah] = useState(0);
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+
+    if (token && role === "HR") {
+      router.replace("/hr/dashboard");
+    }
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = setInterval(() => setLangkah((l) => l + 1), INTERVAL_MS);
     return () => clearInterval(timer);
@@ -198,7 +267,14 @@ export default function LoginPage() {
           aria-hidden="true"
           className="relative hidden h-full lg:w-[64.3%] overflow-hidden rounded-2xl bg-emerald-950 [container-type:size] lg:block"
         >
-          <Image src="/images/image.png" alt="" fill priority sizes="(min-width: 1024px) 64vw, 0px" className="object-cover" />
+          <Image
+            src="/images/image.png"
+            alt=""
+            fill
+            priority
+            sizes="(min-width: 1024px) 64vw, 0px"
+            className="object-cover"
+          />
           <div className="absolute inset-0 bg-emerald-950/60" />
           <div
             className="absolute inset-0 flex items-center justify-center pr-14"
@@ -207,7 +283,13 @@ export default function LoginPage() {
               ["--g" as string]: "calc(var(--s) * 0.1)",
             }}
           >
-            <div className="relative" style={{ width: "calc(2 * var(--s) + var(--g))", height: "calc(3 * var(--s) + 2 * var(--g))" }}>
+            <div
+              className="relative"
+              style={{
+                width: "calc(2 * var(--s) + var(--g))",
+                height: "calc(3 * var(--s) + 2 * var(--g))",
+              }}
+            >
               {kartuPanel.map((data, i) => (
                 <Kartu key={i} data={data} indeks={i} langkah={langkah} />
               ))}
@@ -220,17 +302,26 @@ export default function LoginPage() {
             <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-700 text-lg font-bold text-white">
               K
             </span>
-            <span className="font-heading text-xl font-semibold text-slate-900">KerjaKu</span>
+            <span className="font-heading text-xl font-semibold text-slate-900">
+              KerjaKu
+            </span>
           </div>
 
           <div className="mb-10">
-            <h1 className="font-heading text-3xl font-semibold tracking-tight text-slate-900">Masuk</h1>
-            <p className="mt-2 text-base text-slate-500">Khusus HR dan Finance.</p>
+            <h1 className="font-heading text-3xl font-semibold tracking-tight text-slate-900">
+              Masuk
+            </h1>
+            <p className="mt-2 text-base text-slate-500">
+              Khusus HR dan Finance.
+            </p>
           </div>
 
           <form onSubmit={kirim} noValidate className="space-y-6">
             <div>
-              <label htmlFor="email" className="mb-2 block text-sm font-medium text-slate-700">
+              <label
+                htmlFor="email"
+                className="mb-2 block text-sm font-medium text-slate-700"
+              >
                 Email kerja
               </label>
               <input
@@ -242,17 +333,24 @@ export default function LoginPage() {
                 onChange={(e) => ubah("email", e.target.value)}
                 onBlur={() => saatBlur("email")}
                 aria-invalid={Boolean(tampilGalat("email"))}
-                aria-describedby={tampilGalat("email") ? "email-galat" : undefined}
+                aria-describedby={
+                  tampilGalat("email") ? "email-galat" : undefined
+                }
                 placeholder="nama@perusahaan.com"
                 className={kelasInput("email")}
               />
               {tampilGalat("email") && (
-                <p id="email-galat" className="mt-2 text-sm text-rose-600">{galat.email}</p>
+                <p id="email-galat" className="mt-2 text-sm text-rose-600">
+                  {galat.email}
+                </p>
               )}
             </div>
 
             <div>
-              <label htmlFor="password" className="mb-2 block text-sm font-medium text-slate-700">
+              <label
+                htmlFor="password"
+                className="mb-2 block text-sm font-medium text-slate-700"
+              >
                 Kata sandi
               </label>
               <div className="relative">
@@ -266,26 +364,43 @@ export default function LoginPage() {
                   onKeyDown={(e) => setCapsLock(e.getModifierState("CapsLock"))}
                   onKeyUp={(e) => setCapsLock(e.getModifierState("CapsLock"))}
                   aria-invalid={Boolean(tampilGalat("password"))}
-                  aria-describedby={tampilGalat("password") ? "password-galat" : undefined}
+                  aria-describedby={
+                    tampilGalat("password") ? "password-galat" : undefined
+                  }
                   className={`${kelasInput("password")} pr-12`}
                 />
                 <button
                   type="button"
                   onClick={() => setTampilSandi((v) => !v)}
-                  aria-label={tampilSandi ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
+                  aria-label={
+                    tampilSandi
+                      ? "Sembunyikan kata sandi"
+                      : "Tampilkan kata sandi"
+                  }
                   className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition-colors hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/40"
                 >
-                  {tampilSandi ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {tampilSandi ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
                 </button>
               </div>
               {tampilGalat("password") && (
-                <p id="password-galat" className="mt-2 text-sm text-rose-600">{galat.password}</p>
+                <p id="password-galat" className="mt-2 text-sm text-rose-600">
+                  {galat.password}
+                </p>
               )}
-              {capsLock && <p className="mt-2 text-sm text-amber-700">Caps Lock aktif</p>}
+              {capsLock && (
+                <p className="mt-2 text-sm text-amber-700">Caps Lock aktif</p>
+              )}
             </div>
 
             {galatServer && (
-              <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <div
+                role="alert"
+                className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+              >
                 {galatServer}
               </div>
             )}
@@ -300,7 +415,9 @@ export default function LoginPage() {
           </form>
         </section>
       </div>
-      <p className="absolute bottom-5 right-8 hidden text-xs text-slate-500 lg:block">KerjaKu v1.0 &middot; 2026</p>
+      <p className="absolute bottom-5 right-8 hidden text-xs text-slate-500 lg:block">
+        KerjaKu v1.0 &middot; 2026
+      </p>
     </main>
   );
 }

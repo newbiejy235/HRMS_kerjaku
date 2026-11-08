@@ -14,6 +14,7 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem("token");
     const role = localStorage.getItem("role");
+    
 
     if (!token || role !== "HR") {
       router.replace("/login");
@@ -39,15 +40,14 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
       <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
         <SheetContent side="left" className="p-0 w-64">
           <Sidebar role="hr" />
+          <h1></h1>
         </SheetContent>
       </Sheet>
 
       <div className="flex flex-1 flex-col lg:pl-64">
         <Topbar onMenuClick={() => setIsMobileOpen(true)} role="hr" />
         <main className="flex-1 p-4 lg:p-8">
-          <div className="mx-auto max-w-7xl">
-            {children}
-          </div>
+          <div className="mx-auto max-w-7xl">{children}</div>
         </main>
       </div>
     </div>
