@@ -38,10 +38,6 @@ export const employeeResetPasswordSchema = z.object({
 
 export const hrReviewSchema = z.object({
   requestId: z.number().int().positive("ID request wajib diisi"),
-  reviewedBy: z
-    .number()
-    .int()
-    .positive("ID reviewer wajib diisi"),
   status: z.enum(["approved", "rejected"], {
     error: "Status harus approved atau rejected",
   }),

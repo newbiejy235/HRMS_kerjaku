@@ -6,13 +6,11 @@ const geminiService = new GeminiService();
 export class GeminiController {
   testGemini = async (req: Request, res: Response) => {
     try {
-      console.log("1. Controller dipanggil");
 
       const result = await geminiService.analyzeData({
         name: "budi",
       });
 
-      console.log("3. Hasil diterima");
 
       return res.status(200).json({
         success: true,
