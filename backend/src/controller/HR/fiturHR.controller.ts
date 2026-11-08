@@ -2258,5 +2258,98 @@ export class HRfeatures {
       });
     }
   };
+
+  getShiftSettings = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan mengakses pengaturan shift",
+        });
+      }
+
+      const data = await db
+        .select({
+          id_settings: attendanceSettings.id_settings,
+          category: attendanceSettings.category,
+          normal_time_in: attendanceSettings.normal_time_in,
+          normal_time_out: attendanceSettings.normal_time_out,
+          tolerance_time: attendanceSettings.tolerance_time,
+        })
+        .from(attendanceSettings)
+        .orderBy(asc(attendanceSettings.id_settings));
+
+      return res.status(200).json({
+        success: true,
+        message: "Berhasil mengambil pengaturan shift",
+        total: data.length,
+        data,
+      });
+    } catch (error) {
+      console.error("Get Shift Settings Error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Gagal mengambil pengaturan shift",
+      });
+    }
+  };
+
+  createShiftSettings = async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user;
+
+      if (!user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesi tidak valid",
+        });
+      }
+
+      if (user.role !== "HR") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak diizinkan menambahkan pengaturan shift",
+        });
+      }
+
+      const validation = shiftSettingsSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors: validation.error.flatten().fieldErrors,
+        });
+      }
+
+      const [created] = await db
+        .insert(attendanceSettings)
+        .values(validation.data)
+        .returning();
+
+      return res.status(201).json({
+        success: true,
+        message: "Berhasil menambahkan pengaturan shift",
+        data: created,
+      });
+    } catch (error) {
+      console.error("Create Shift Settings Error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Gagal menambahkan pengaturan shift",
+      });
+    }
+  };
 }
 export default new HRfeatures();

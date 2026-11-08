@@ -9,6 +9,19 @@ router.patch(
   authenticate,
   HRfeatures.employeeShiftSettings,
 );
+
+router.get(
+  "/shift-settings/all",
+  authenticate,
+  HRfeatures.getShiftSettings,
+);
+
+router.post(
+  "/shift-settings/create",
+  authenticate,
+  HRfeatures.createShiftSettings,
+);
+
 router.post("/shift", authenticate, HRfeatures.createEmployeeShift);
 router.patch("/shift/:shiftId", authenticate, HRfeatures.updateEmployeeShift);
 router.get("/", authenticate, HRfeatures.getAllShiftSchedules);
