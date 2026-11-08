@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNotNull, ne } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, lte, ne } from "drizzle-orm";
 import { Request, Response } from "express";
 import { db } from "../../config/db";
 import {
@@ -173,12 +173,10 @@ export class EmployeeFeatures {
       );
 
       // 5. Insert atau update token berdasarkan outlet
-      // await db
-      //   .insert(attendanceQrCode)
-      //   .values({
-      //     qrCodeToken: tokenHash,
-      //     expiredAt: expiresAt,
-      //   })
+      await db.insert(attendanceQrCode).values({
+        qrCodeToken: tokenHash,
+        expiredAt: expiresAt,
+      });
 
       await db.update(attendanceQrCode).set({
         qrCodeToken: tokenHash,
@@ -193,7 +191,6 @@ export class EmployeeFeatures {
           qrCode,
           token,
           expiresAt,
-          usersTable,
         },
       });
     } catch (error) {
@@ -347,25 +344,17 @@ export class EmployeeFeatures {
       });
 
       // 11. Ambil jadwal shift karyawan hari ini
+      // 11. Ambil jadwal shift terakhir yang sudah berlaku
       const [schedule] = await db
-        .select({
-          shiftId: shiftSchedule.shiftId,
-          shiftDate: shiftSchedule.shiftDate,
-          normalTimeIn: attendanceSettings.normal_time_in,
-          normalTimeOut: attendanceSettings.normal_time_out,
-          toleranceTime: attendanceSettings.tolerance_time,
-        })
+        .select()
         .from(shiftSchedule)
-        .innerJoin(
-          attendanceSettings,
-          eq(shiftSchedule.shiftTime, attendanceSettings.id_settings),
-        )
         .where(
           and(
             eq(shiftSchedule.id_employee, user.employeeId),
-            eq(shiftSchedule.shiftDate, shiftDate),
+            lte(shiftSchedule.shiftDate, shiftDate),
           ),
         )
+        .orderBy(desc(shiftSchedule.shiftDate))
         .limit(1);
 
       if (!schedule) {
@@ -375,8 +364,48 @@ export class EmployeeFeatures {
         });
       }
 
-      // 12. Validasi konfigurasi jam masuk
-      if (!schedule.normalTimeIn || !schedule.toleranceTime) {
+      // 12. Ambil konfigurasi shift utama
+      const [currentShift] = await db
+        .select()
+        .from(attendanceSettings)
+        .where(eq(attendanceSettings.id_settings, schedule.shiftTime))
+        .limit(1);
+
+      if (!currentShift) {
+        return res.status(404).json({
+          success: false,
+          message: "Konfigurasi shift utama tidak ditemukan",
+        });
+      }
+
+      let activeShift = currentShift;
+
+      // 13. Periksa apakah upcoming shift sudah mulai berlaku
+      if (schedule.upcomingShiftDate && schedule.upcomingShiftTime) {
+        const [upcomingShift] = await db
+          .select()
+          .from(attendanceSettings)
+          .where(eq(attendanceSettings.id_settings, schedule.upcomingShiftTime))
+          .limit(1);
+
+        if (!upcomingShift) {
+          return res.status(404).json({
+            success: false,
+            message: "Konfigurasi upcoming shift tidak ditemukan",
+          });
+        }
+
+        const upcomingStart = `${schedule.upcomingShiftDate} ${upcomingShift.normal_time_in}`;
+
+        const currentDateTime = `${shiftDate} ${currentTime}`;
+
+        if (currentDateTime >= upcomingStart) {
+          activeShift = upcomingShift;
+        }
+      }
+
+      // 14. Validasi konfigurasi shift aktif
+      if (!activeShift.normal_time_in || !activeShift.tolerance_time) {
         return res.status(400).json({
           success: false,
           message: "Pengaturan jam masuk atau toleransi belum dikonfigurasi",
@@ -399,9 +428,9 @@ export class EmployeeFeatures {
       if (!existing) {
         let attendanceStatus: "on time" | "tolerance time" | "late";
 
-        if (currentTime <= schedule.normalTimeIn) {
+        if (currentTime <= activeShift.normal_time_in) {
           attendanceStatus = "on time";
-        } else if (currentTime < schedule.toleranceTime) {
+        } else if (currentTime < activeShift.tolerance_time) {
           attendanceStatus = "tolerance time";
         } else {
           attendanceStatus = "late";
