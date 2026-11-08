@@ -132,7 +132,7 @@ export default function AllocationsPage() {
                 <Label className="text-sm font-medium text-slate-700">Karyawan</Label>
                 <Select
                   value={formData.employeeId}
-                  onValueChange={(value) => setFormData({ ...formData, employeeId: value })}
+                  onValueChange={(value) => setFormData({ ...formData, employeeId: value || "" })}
                 >
                   <SelectTrigger className="h-10 rounded-lg border-slate-300">
                     <SelectValue placeholder="Pilih Karyawan" />
@@ -150,7 +150,7 @@ export default function AllocationsPage() {
                 <Label className="text-sm font-medium text-slate-700">Komponen Gaji</Label>
                 <Select
                   value={formData.componentId}
-                  onValueChange={(value) => setFormData({ ...formData, componentId: value })}
+                  onValueChange={(value) => setFormData({ ...formData, componentId: value || ""})}
                 >
                   <SelectTrigger className="h-10 rounded-lg border-slate-300">
                     <SelectValue placeholder="Pilih Komponen" />
