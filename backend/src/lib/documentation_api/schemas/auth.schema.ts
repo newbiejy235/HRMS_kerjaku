@@ -24,6 +24,9 @@ export const authSchemas: Record<string, any> = {
       cities_id: { type: "integer", minimum: 1 },
       noRek: { type: "string", minLength: 10, maxLength: 100 },
       nip: { type: "string", minLength: 10, maxLength: 100 },
+      NPWP: { type: "string", minLength: 16, maxLength: 16, pattern: "^[0-9]+$", nullable: true },
+      BPJS_Kesehatan: { type: "string", maxLength: 100, nullable: true },
+      BPJS_Ketenagakerjaan: { type: "string", maxLength: 100, nullable: true },
       hire_date: { type: "string", format: "date" },
       resign_date: { type: "string", format: "date", nullable: true },
       idPosition: { type: "integer", minimum: 1 },
@@ -63,10 +66,9 @@ export const authSchemas: Record<string, any> = {
   },
   ReviewForgetPasswordRequest: {
     type: "object",
-    required: ["requestId", "reviewedBy", "status"],
+    required: ["requestId", "status"],
     properties: {
       requestId: { type: "integer", minimum: 1 },
-      reviewedBy: { type: "integer", minimum: 1 },
       status: { type: "string", enum: ["approved", "rejected"] },
     },
   },
