@@ -52,12 +52,31 @@ export const employe = z.object({
     .min(10, "NIP minimal 10 karakter")
     .max(100, "NIP maksimal 100 karakter"),
 
-  hire_date: z
-    .iso
-    .date("Format hire date harus YYYY-MM-DD"),
+  NPWP: z
+    .string()
+    .trim()
+    .length(16, "NPWP harus 16 digit")
+    .regex(/^[0-9]+$/, "NPWP hanya boleh berisi angka")
+    .nullable()
+    .optional(),
 
-  resign_date: z
-    .iso
+  BPJS_Kesehatan: z
+    .string()
+    .trim()
+    .max(100, "Nomor BPJS Kesehatan maksimal 100 karakter")
+    .nullable()
+    .optional(),
+
+  BPJS_Ketenagakerjaan: z
+    .string()
+    .trim()
+    .max(100, "Nomor BPJS Ketenagakerjaan maksimal 100 karakter")
+    .nullable()
+    .optional(),
+
+  hire_date: z.iso.date("Format hire date harus YYYY-MM-DD"),
+
+  resign_date: z.iso
     .date("Format resign date harus YYYY-MM-DD")
     .optional()
     .nullable(),

@@ -97,17 +97,17 @@ export default function KaryawanPage() {
               className="pl-9 h-10 rounded-lg border-slate-300 bg-white"
             />
           </div>
-          <Button variant="outline" className="h-10 rounded-lg border-slate-300 text-slate-700 w-full sm:w-auto">
+          {/* <Button variant="outline" className="h-10 rounded-lg border-slate-300 text-slate-700 w-full sm:w-auto">
             <Filter className="h-4 w-4 mr-2" />
             Filter Outlet
-          </Button>
+          </Button> */}
         </div>
 
         <div className="overflow-x-auto">
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow className="border-slate-200 hover:bg-transparent">
-                <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-11">NIP</TableHead>
+                <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-11">Employee code</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-11">Nama Karyawan</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-11">Role</TableHead>
                 <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider h-11">Kontak</TableHead>

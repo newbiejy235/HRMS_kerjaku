@@ -3,6 +3,7 @@ import { z } from "zod";
 export const manageEmploye = z.object({
   employeeId: z
     .string()
+    .trim()
     .min(1, "Employee code wajib diisi")
     .max(30, "Employee code maksimal 30 karakter"),
 
@@ -21,7 +22,6 @@ export const manageEmploye = z.object({
     .string()
     .trim()
     .max(255, "Nama belakang maksimal 255 karakter")
-    .optional()
     .nullable(),
 
   gender: z.enum(["L", "P"], {
@@ -33,7 +33,8 @@ export const manageEmploye = z.object({
     .trim()
     .min(10, "Nomor telepon minimal 10 karakter")
     .max(13, "Nomor telepon maksimal 13 karakter")
-    .regex(/^[0-9]+$/, "Nomor telepon hanya boleh berisi angka"),
+    .regex(/^[0-9]+$/, "Nomor telepon hanya boleh berisi angka")
+    .nullable(),
 
   cities_id: z
     .number()
@@ -52,14 +53,33 @@ export const manageEmploye = z.object({
     .min(10, "NIP minimal 10 karakter")
     .max(100, "NIP maksimal 100 karakter"),
 
-  hire_date: z
-    .iso
-    .date("Format hire date harus YYYY-MM-DD"),
+  NPWP: z
+    .string()
+    .trim()
+    .length(16, "NPWP harus 16 digit")
+    .regex(/^[0-9]+$/, "NPWP hanya boleh berisi angka")
+    .nullable(),
 
-  resign_date: z
-    .iso
-    .date("Format resign date harus YYYY-MM-DD")
-    .optional()
+  BPJS_Kesehatan: z
+    .string()
+    .trim()
+    .max(100, "BPJS Kesehatan maksimal 100 karakter")
+    .nullable(),
+
+  BPJS_Ketenagakerjaan: z
+    .string()
+    .trim()
+    .max(100, "BPJS Ketenagakerjaan maksimal 100 karakter")
+    .nullable(),
+
+  hire_date: z.iso.date({
+    error: "Format hire date harus YYYY-MM-DD",
+  }),
+
+  resign_date: z.iso
+    .date({
+      error: "Format resign date harus YYYY-MM-DD",
+    })
     .nullable(),
 
   idPosition: z
@@ -72,9 +92,14 @@ export const manageEmploye = z.object({
     .int("Department ID harus berupa bilangan bulat")
     .positive("Department ID harus lebih dari 0"),
 
-  employment_status: z
-    .enum(["active", "fired"], {
-      error: "Status karyawan harus active atau fired",
-    })
-    .default("active"),
+  employment_status: z.enum(["active", "fired"], {
+    error: "Status karyawan harus active atau fired",
+  }),
 });
+
+// // Validation untuk edit data karyawan
+// export const updateEmploye = manageEmploye.partial();
+
+// export type ManageEmployeInput = z.infer<typeof manageEmploye>;
+
+// export type UpdateEmployeInput = z.infer<typeof updateEmploye>;

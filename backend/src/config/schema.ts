@@ -79,6 +79,7 @@ export const employes = pgTable("employes", {
   nip: varchar({ length: 100 }).notNull(),
   BPJS_Kesehatan: varchar({ length: 100 }),
   BPJS_Ketenagakerjaan: varchar({ length: 100 }),
+  NPWP : varchar({length : 16}),
   hire_date: date("hire_date").notNull(),
   resign_date: date("resign_date"),
   idPosition: integer("id_position")
