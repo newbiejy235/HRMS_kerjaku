@@ -13,6 +13,7 @@ import financeRoutes from "./routes/finance.routes";
 import dataStatistic from "./routes/statistic.routes"
 import location from "./routes/attendanceLocaation.routes"
 import reimbursements from "./routes/reimburse.routes"
+import kota from "./routes/provinsi.route"
 
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./lib/documentation_api/swagger";
@@ -44,6 +45,7 @@ app.use("/finance", financeRoutes);
 app.use("/statistic", dataStatistic);
 app.use("/employee/loation", location);
 app.use("/reimbursements", reimbursements);
+app.use("/cities", kota);
 
 app.get("/", (req, res) => {
   res.send("Hello Express + TypeScript!");
