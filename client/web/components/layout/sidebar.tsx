@@ -11,6 +11,10 @@ import {
   Settings,
   LogOut,
   Timer,
+  QrCode,
+  Coins,
+  UserCheck,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,14 +23,20 @@ const menus = {
     { name: "Dashboard", href: "/hr/dashboard", icon: LayoutDashboard },
     { name: "Karyawan", href: "/hr/employees", icon: Users },
     { name: "Kehadiran", href: "/hr/attendance", icon: Clock },
+    { name: "Kiosk QR Absensi", href: "/attendance/qr/generate", icon: QrCode },
     { name: "Shift", href: "/hr/shift", icon: CalendarDays },
     { name: "Tugaskan Lembur", href: "/hr/lembur", icon: Timer },
     { name: "Pengajuan", href: "/hr/pengajuan", icon: FileText },
+    { name: "Komponen Gaji", href: "/hr/payroll/components", icon: Coins },
+    { name: "Alokasi Gaji", href: "/hr/payroll/allocations", icon: UserCheck },
+    { name: "Detail Payroll", href: "/hr/payroll/details", icon: Receipt },
   ],
   finance: [
     { name: "Dashboard", href: "/finance/dashboard", icon: LayoutDashboard },
+    { name: "Komponen Gaji", href: "/finance/components", icon: Coins },
+    { name: "Alokasi Gaji", href: "/finance/allocations", icon: UserCheck },
     { name: "Penggajian", href: "/finance/payroll", icon: FileText },
-    { name: "Laporan", href: "/finance/reports", icon: FileText },
+    { name: "Laporan", href: "/finance/reports", icon: Receipt },
   ],
 };
 
