@@ -281,7 +281,7 @@ export class HRfeatures {
       }
 
       // Validasi hak akses berdasarkan pengguna yang login
-      if (user.role !== "HR") {
+      if (user.role !== "HR" && user.role !=="Finance") {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan mengakses data karyawan",
@@ -1483,7 +1483,7 @@ export class HRfeatures {
         });
       }
 
-      if (user.role !== "HR") {
+      if (user.role === "Karyawan" || user.role === null) {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan untuk akses fitur ini",
@@ -1536,7 +1536,7 @@ export class HRfeatures {
         });
       }
 
-      if (user.role !== "HR") {
+      if (user.role === "Karyawan" || user.role === null) {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan untuk akses fitur ini",
@@ -1592,7 +1592,7 @@ export class HRfeatures {
         });
       }
 
-      if (user.role !== "HR") {
+      if (user.role === "Karyawan" || user.role === null) {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan untuk akses fitur ini",
@@ -1629,7 +1629,7 @@ export class HRfeatures {
         });
       }
 
-      if (user.role !== "HR") {
+      if (user.role === "Karyawan" || user.role === null) {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan untuk akses fitur ini",
@@ -1688,8 +1688,7 @@ export class HRfeatures {
           message: "Sesi tidak valid",
         });
       }
-
-      if (user.role !== "HR") {
+      if (user.role === "Karyawan" || user.role === null) {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan untuk akses fitur ini",
@@ -1743,7 +1742,7 @@ export class HRfeatures {
         });
       }
 
-      if (user.role !== "HR") {
+      if (user.role === "Karyawan" || user.role === null) {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan untuk akses fitur ini",

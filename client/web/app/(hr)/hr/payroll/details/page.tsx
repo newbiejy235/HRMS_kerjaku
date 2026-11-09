@@ -99,18 +99,6 @@ export default function PayrollDetailsPage() {
   const [selectedSlip, setSelectedSlip] = useState<PayrollSlipSummary | null>(null);
   const [isSlipDetailOpen, setIsSlipDetailOpen] = useState(false);
 
-  // Generate Payroll modal
-  const [isGenerateOpen, setIsGenerateOpen] = useState(false);
-  const [genEmployeeId, setGenEmployeeId] = useState("");
-  const [genPeriod, setGenPeriod] = useState(() => {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    return `${y}-${m}`;
-  });
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState("");
-
   const [toastMessage, setToastMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Fetch details and summaries
@@ -193,49 +181,6 @@ export default function PayrollDetailsPage() {
     });
   }, [summaries, searchQuery, periodFilter]);
 
-  // Handle Generate Payroll (calls POST /finance/payrolls/generate)
-  const handleGeneratePayroll = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setGenerateError("");
-
-    if (!genEmployeeId) {
-      setGenerateError("Pilih karyawan terlebih dahulu");
-      return;
-    }
-    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(genPeriod)) {
-      setGenerateError("Format periode harus YYYY-MM (contoh: 2026-11)");
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      const res = await apiFetch("/finance/payrolls/generate", {
-        method: "POST",
-        body: JSON.stringify({
-          employeeId: genEmployeeId,
-          payrollPeriod: genPeriod,
-        }),
-      });
-
-      const result = await res.json();
-      if (!res.ok || !result.success) {
-        throw new Error(result.message || "Gagal generate payroll");
-      }
-
-      setToastMessage({
-        type: "success",
-        text: `Payroll berhasil di-generate untuk karyawan ${genEmployeeId} periode ${genPeriod}`,
-      });
-      setIsGenerateOpen(false);
-      loadData();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Terjadi kesalahan";
-      setGenerateError(message);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   // View Slip breakdown
   const handleViewSlip = (slip: PayrollSlipSummary) => {
     setSelectedSlip(slip);
@@ -303,17 +248,6 @@ export default function PayrollDetailsPage() {
             Data get detail breakdown pendapatan dan potongan gaji yang diproses oleh sistem Finance.
           </p>
         </div>
-
-        <Button
-          onClick={() => {
-            setGenerateError("");
-            setIsGenerateOpen(true);
-          }}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm h-10 px-4 text-sm font-medium gap-2 shrink-0"
-        >
-          <Sparkles className="w-4 h-4" />
-          Generate Payroll Baru
-        </Button>
       </div>
 
       {/* KPI Stat Cards */}

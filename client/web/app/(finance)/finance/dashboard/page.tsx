@@ -6,10 +6,13 @@ import { apiFetch } from "@/lib/api";
 
 type Payroll = {
   payrollId: number;
-  employeeName: string;
+  employeeId: string;
+  firstName: string;
+  lastName: string;
   payrollPeriod: string;
+  totalEarnings: string;
+  totalDeductions: string;
   netSalary: string;
-  status: string;
 };
 
 const formatRupiah = (angka: string | number) => {
@@ -28,7 +31,7 @@ export default function FinanceDashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await apiFetch("/finance/payrolls");
+        const response = await apiFetch("/finance/payrolls/all");
         const result = await response.json();
         if (result.success) {
           setPayrolls(result.data);
@@ -43,12 +46,12 @@ export default function FinanceDashboardPage() {
     fetchDashboardData();
   }, []);
 
-  const totalPengeluaran = payrolls
-    .filter((p) => p.status === "accepted")
-    .reduce((acc, curr) => acc + parseFloat(curr.netSalary || "0"), 0);
+  const totalPengeluaran = payrolls.reduce(
+    (acc, curr) => acc + parseFloat(curr.netSalary || "0"),
+    0,
+  );
 
-  const totalPending = payrolls.filter((p) => p.status === "pending").length;
-  const totalKaryawan = new Set(payrolls.map((p) => p.employeeName)).size;
+  const totalKaryawan = new Set(payrolls.map((p) => p.firstName)).size;
 
   if (isLoading) {
     return (
@@ -61,15 +64,21 @@ export default function FinanceDashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900 font-heading tracking-tight">Dashboard Finance</h1>
-        <p className="text-sm text-slate-500 mt-1">Ringkasan penggajian dan status keuangan.</p>
+        <h1 className="text-2xl font-semibold text-slate-900 font-heading tracking-tight">
+          Dashboard Finance
+        </h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Ringkasan penggajian dan status keuangan.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <Wallet className="h-4 w-4 text-emerald-600" />
-            <p className="text-xs font-medium text-slate-500">Total Gaji Disetujui</p>
+            <p className="text-xs font-medium text-slate-500">
+              Total Gaji Disetujui
+            </p>
           </div>
           <p className="text-2xl font-semibold text-slate-900 tabular-nums">
             {formatRupiah(totalPengeluaran)}
@@ -84,48 +93,49 @@ export default function FinanceDashboardPage() {
             {totalKaryawan} Orang
           </p>
         </div>
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <Clock className="h-4 w-4 text-amber-600" />
-            <p className="text-xs font-medium text-slate-500">Menunggu Persetujuan</p>
-          </div>
-          <p className="text-2xl font-semibold text-slate-900 tabular-nums">
-            {totalPending} Pengajuan
-          </p>
-        </div>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200">
-          <h2 className="text-base font-semibold text-slate-900">Aktivitas Penggajian Terbaru</h2>
+          <h2 className="text-base font-semibold text-slate-900">
+            Aktivitas Penggajian Terbaru
+          </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
               <tr>
+                <th className="px-6 py-3 font-medium">id</th>
+                <th className="px-6 py-3 font-medium">employee code</th>
                 <th className="px-6 py-3 font-medium">Nama Karyawan</th>
                 <th className="px-6 py-3 font-medium">Periode</th>
-                <th className="px-6 py-3 font-medium text-right">Gaji Bersih</th>
-                <th className="px-6 py-3 font-medium text-center">Status</th>
+                <th className="px-6 py-3 font-medium text-right">
+                  Gaji Bersih
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {payrolls.slice(0, 5).map((row) => (
-                <tr key={row.payrollId} className="hover:bg-slate-50 transition-colors h-12">
-                  <td className="px-6 py-4 font-medium text-slate-900">{row.employeeName}</td>
-                  <td className="px-6 py-4 text-slate-600 tabular-nums">{row.payrollPeriod}</td>
-                  <td className="px-6 py-4 font-semibold text-slate-900 tabular-nums text-right">{formatRupiah(row.netSalary)}</td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
-                      row.status === "accepted"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : row.status === "pending"
-                        ? "bg-amber-50 text-amber-700"
-                        : "bg-rose-50 text-rose-700"
-                    }`}>
-                      {row.status === "accepted" ? "Disetujui" : row.status === "pending" ? "Menunggu" : "Ditolak"}
-                    </span>
+                <tr
+                  key={row.payrollId}
+                  className="hover:bg-slate-50 transition-colors h-12"
+                >
+                  <td className="px-6 py-4 font-medium text-slate-900">
+                    {row.payrollId}
                   </td>
+                  <td className="px-6 py-4 font-medium text-slate-900">
+                    {row.employeeId}
+                  </td>
+                  <td className="px-6 py-4 font-medium text-slate-900">
+                    {row.firstName} {row.lastName}
+                  </td>
+                  <td className="px-6 py-4 text-slate-600 tabular-nums">
+                    {row.payrollPeriod}
+                  </td>
+                  <td className="px-6 py-4 font-semibold text-slate-900 tabular-nums text-right">
+                    {formatRupiah(row.netSalary)}
+                  </td>
+                  <td className="px-6 py-4 text-center"></td>
                 </tr>
               ))}
             </tbody>
