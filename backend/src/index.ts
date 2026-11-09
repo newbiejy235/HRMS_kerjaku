@@ -14,6 +14,7 @@ import dataStatistic from "./routes/statistic.routes"
 import location from "./routes/attendanceLocaation.routes"
 import reimbursements from "./routes/reimburse.routes"
 import kota from "./routes/provinsi.route"
+import getNotification from "./routes/getNotification.routes"
 
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./lib/documentation_api/swagger";
@@ -46,6 +47,7 @@ app.use("/statistic", dataStatistic);
 app.use("/employee/loation", location);
 app.use("/reimbursements", reimbursements);
 app.use("/cities", kota);
+app.use("/getNotification", getNotification);
 
 app.get("/", (req, res) => {
   res.send("Hello Express + TypeScript!");

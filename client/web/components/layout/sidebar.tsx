@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Clock, CalendarDays, FileText, Settings, LogOut } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  Clock,
+  CalendarDays,
+  FileText,
+  Settings,
+  LogOut,
+  Timer,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const menus = {
@@ -11,7 +20,8 @@ const menus = {
     { name: "Karyawan", href: "/hr/employees", icon: Users },
     { name: "Kehadiran", href: "/hr/attendance", icon: Clock },
     { name: "Shift", href: "/hr/shift", icon: CalendarDays },
-    { name: "Pengajuan", href: "/hr/requests", icon: FileText },
+    { name: "Tugaskan Lembur", href: "/hr/lembur", icon: Timer },
+    { name: "Pengajuan", href: "/hr/pengajuan", icon: FileText },
   ],
   finance: [
     { name: "Dashboard", href: "/finance/dashboard", icon: LayoutDashboard },

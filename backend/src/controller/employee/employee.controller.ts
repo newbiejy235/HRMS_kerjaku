@@ -574,7 +574,7 @@ export class EmployeeFeatures {
           "",
           `Haloo ${escapeHtml(hr.firstName)} 👋`,
           "",
-          "Kamu mendapat notifikasi pengajuan reimburse dari karyawan nih:",
+          "Kamu mendapat notifikasi pengajuan izin kerja dari karyawan nih:",
           `📆 Tanggal: ${start_date} - ${end_date}`,
           "",
           `📔 kaategori: ${permit_type}`,
