@@ -46,7 +46,6 @@ export default function AttendancePage() {
           setErrorMsg(result.message || "Gagal mengambil data kehadiran.");
         }
       } catch (error) {
-        console.log(error);
 
         setErrorMsg("Tidak dapat terhubung ke server.");
       } finally {
