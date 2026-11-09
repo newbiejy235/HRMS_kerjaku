@@ -15,6 +15,7 @@ import {
   Coins,
   UserCheck,
   Receipt,
+  ChartNoAxesCombined
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,8 +36,9 @@ const menus = {
     { name: "Dashboard", href: "/finance/dashboard", icon: LayoutDashboard },
     { name: "Komponen Gaji", href: "/finance/components", icon: Coins },
     { name: "Alokasi Gaji", href: "/finance/allocations", icon: UserCheck },
+    { name: "Detail Payroll", href: "/finance/details", icon: Receipt },
     { name: "Penggajian", href: "/finance/payroll", icon: FileText },
-    { name: "Laporan", href: "/finance/reports", icon: Receipt },
+    { name: "Laporan", href: "/finance/reports", icon: ChartNoAxesCombined },
   ],
 };
 
@@ -44,6 +46,7 @@ export function Sidebar({ role }: { role: "hr" | "finance" }) {
   const pathname = usePathname();
   const router = useRouter();
   const menuItems = menus[role];
+  const settingsHref = role === "hr" ? "/hr/settings" : "/finance/settings";
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -70,10 +73,15 @@ export function Sidebar({ role }: { role: "hr" | "finance" }) {
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-emerald-50 text-emerald-800"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
               )}
             >
-              <item.icon className={cn("h-[18px] w-[18px]", isActive ? "text-emerald-800" : "text-slate-400")} />
+              <item.icon
+                className={cn(
+                  "h-[18px] w-[18px]",
+                  isActive ? "text-emerald-800" : "text-slate-400",
+                )}
+              />
               {item.name}
             </Link>
           );
@@ -82,10 +90,22 @@ export function Sidebar({ role }: { role: "hr" | "finance" }) {
 
       <div className="p-4 border-t border-border space-y-1">
         <Link
-          href="/settings"
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+          href={settingsHref}
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+            pathname.startsWith(settingsHref)
+              ? "bg-emerald-50 text-emerald-800"
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+          )}
         >
-          <Settings className="h-[18px] w-[18px] text-slate-400" />
+          <Settings
+            className={cn(
+              "h-[18px] w-[18px]",
+              pathname.startsWith(settingsHref)
+                ? "text-emerald-800"
+                : "text-slate-400",
+            )}
+          />
           Pengaturan
         </Link>
         <button

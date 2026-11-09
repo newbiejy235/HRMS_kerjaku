@@ -110,7 +110,57 @@ export default function PayrollPage() {
   };
 
   useEffect(() => {
-    fetchData();
+    let ignore = false;
+
+    const loadData = async () => {
+      try {
+        const [payrollRes, employeeRes] = await Promise.all([
+          apiFetch("/finance/payrolls/all"),
+          apiFetch("/data"),
+        ]);
+
+        const [payrollJson, employeeJson] = await Promise.all([
+          payrollRes.json(),
+          employeeRes.json(),
+        ]);
+
+        if (ignore) return;
+
+        if (!payrollRes.ok || !payrollJson.success) {
+          throw new Error(
+            payrollJson.message || "Gagal mengambil data penggajian.",
+          );
+        }
+
+        setPayrolls(Array.isArray(payrollJson.data) ? payrollJson.data : []);
+
+        if (employeeRes.ok && employeeJson.success) {
+          setEmployees(
+            Array.isArray(employeeJson.data) ? employeeJson.data : [],
+          );
+        } else {
+          console.error("Gagal mengambil data karyawan:", employeeJson.message);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setErrorMsg(
+            error instanceof Error
+              ? error.message
+              : "Tidak dapat terhubung ke server.",
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   // Generate payroll
@@ -338,7 +388,7 @@ export default function PayrollPage() {
 
               <Select
                 value={genEmployeeId}
-                onValueChange={setGenEmployeeId}
+                onValueChange={(value) => setGenEmployeeId(value ?? "")}
                 disabled={isGenerating}
               >
                 <SelectTrigger>

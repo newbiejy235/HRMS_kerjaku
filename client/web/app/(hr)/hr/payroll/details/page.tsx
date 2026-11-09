@@ -88,18 +88,27 @@ export default function PayrollDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Active tab
-  const [activeTab, setActiveTab] = useState<"details" | "summaries">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "summaries">(
+    "details",
+  );
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [periodFilter, setPeriodFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<"all" | "earning" | "deduction">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "earning" | "deduction">(
+    "all",
+  );
 
   // Modal states
-  const [selectedSlip, setSelectedSlip] = useState<PayrollSlipSummary | null>(null);
+  const [selectedSlip, setSelectedSlip] = useState<PayrollSlipSummary | null>(
+    null,
+  );
   const [isSlipDetailOpen, setIsSlipDetailOpen] = useState(false);
 
-  const [toastMessage, setToastMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [toastMessage, setToastMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   // Fetch details and summaries
   const loadData = useCallback(async () => {
@@ -162,7 +171,8 @@ export default function PayrollDetailsPage() {
         item.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.componentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.payrollPeriod.includes(searchQuery);
-      const matchPeriod = periodFilter === "all" || item.payrollPeriod === periodFilter;
+      const matchPeriod =
+        periodFilter === "all" || item.payrollPeriod === periodFilter;
       const matchType = typeFilter === "all" || item.type === typeFilter;
       return matchSearch && matchPeriod && matchType;
     });
@@ -176,7 +186,8 @@ export default function PayrollDetailsPage() {
         item.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||
         fullName.includes(searchQuery.toLowerCase()) ||
         item.payrollPeriod.includes(searchQuery);
-      const matchPeriod = periodFilter === "all" || item.payrollPeriod === periodFilter;
+      const matchPeriod =
+        periodFilter === "all" || item.payrollPeriod === periodFilter;
       return matchSearch && matchPeriod;
     });
   }, [summaries, searchQuery, periodFilter]);
@@ -193,7 +204,7 @@ export default function PayrollDetailsPage() {
     return details.filter(
       (d) =>
         d.employeeId === selectedSlip.employeeId &&
-        d.payrollPeriod === selectedSlip.payrollPeriod
+        d.payrollPeriod === selectedSlip.payrollPeriod,
     );
   }, [selectedSlip, details]);
 
@@ -202,11 +213,11 @@ export default function PayrollDetailsPage() {
   const totalSlipsCount = summaries.length;
   const totalNetPaid = summaries.reduce(
     (sum, s) => sum + (parseFloat(s.netSalary) || 0),
-    0
+    0,
   );
   const totalEarningsAll = summaries.reduce(
     (sum, s) => sum + (parseFloat(s.totalEarnings) || 0),
-    0
+    0,
   );
 
   return (
@@ -245,7 +256,8 @@ export default function PayrollDetailsPage() {
             Detail & Riwayat Payroll
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Data get detail breakdown pendapatan dan potongan gaji yang diproses oleh sistem Finance.
+            Data get detail breakdown pendapatan dan potongan gaji yang diproses
+            oleh sistem Finance.
           </p>
         </div>
       </div>
@@ -257,8 +269,12 @@ export default function PayrollDetailsPage() {
             <Layers className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-500">Rincian Komponen Terproses</p>
-            <p className="text-2xl font-bold text-slate-900 mt-0.5">{totalDetailsCount}</p>
+            <p className="text-xs font-medium text-slate-500">
+              Rincian Komponen Terproses
+            </p>
+            <p className="text-2xl font-bold text-slate-900 mt-0.5">
+              {totalDetailsCount}
+            </p>
           </div>
         </div>
 
@@ -267,8 +283,12 @@ export default function PayrollDetailsPage() {
             <FileSpreadsheet className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-500">Total Slip Selesai</p>
-            <p className="text-2xl font-bold text-blue-600 mt-0.5">{totalSlipsCount}</p>
+            <p className="text-xs font-medium text-slate-500">
+              Total Slip Selesai
+            </p>
+            <p className="text-2xl font-bold text-blue-600 mt-0.5">
+              {totalSlipsCount}
+            </p>
           </div>
         </div>
 
@@ -277,7 +297,9 @@ export default function PayrollDetailsPage() {
             <ArrowUpRight className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-500">Total Pendapatan Kotor</p>
+            <p className="text-xs font-medium text-slate-500">
+              Total Pendapatan Kotor
+            </p>
             <p className="text-xl font-bold text-emerald-600 mt-0.5">
               {formatRupiah(totalEarningsAll)}
             </p>
@@ -289,7 +311,9 @@ export default function PayrollDetailsPage() {
             <Wallet className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-500">Total Gaji Bersih (Net)</p>
+            <p className="text-xs font-medium text-slate-500">
+              Total Gaji Bersih (Net)
+            </p>
             <p className="text-xl font-bold text-teal-700 mt-0.5">
               {formatRupiah(totalNetPaid)}
             </p>
@@ -342,7 +366,10 @@ export default function PayrollDetailsPage() {
 
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           {/* Period Filter */}
-          <Select value={periodFilter} onValueChange={(val) => setPeriodFilter(val || "all")}>
+          <Select
+            value={periodFilter}
+            onValueChange={(val) => setPeriodFilter(val || "all")}
+          >
             <SelectTrigger className="h-10 rounded-xl text-xs w-full sm:w-44 bg-slate-50/70">
               <SelectValue placeholder="Pilih Periode" />
             </SelectTrigger>
@@ -362,7 +389,9 @@ export default function PayrollDetailsPage() {
               <button
                 onClick={() => setTypeFilter("all")}
                 className={`px-3 py-1.5 rounded-lg transition-colors ${
-                  typeFilter === "all" ? "bg-white text-slate-900 shadow-xs font-semibold" : "hover:text-slate-900"
+                  typeFilter === "all"
+                    ? "bg-white text-slate-900 shadow-xs font-semibold"
+                    : "hover:text-slate-900"
                 }`}
               >
                 Semua
@@ -370,7 +399,9 @@ export default function PayrollDetailsPage() {
               <button
                 onClick={() => setTypeFilter("earning")}
                 className={`px-3 py-1.5 rounded-lg transition-colors ${
-                  typeFilter === "earning" ? "bg-white text-emerald-700 shadow-xs font-semibold" : "hover:text-slate-900"
+                  typeFilter === "earning"
+                    ? "bg-white text-emerald-700 shadow-xs font-semibold"
+                    : "hover:text-slate-900"
                 }`}
               >
                 Pendapatan
@@ -378,7 +409,9 @@ export default function PayrollDetailsPage() {
               <button
                 onClick={() => setTypeFilter("deduction")}
                 className={`px-3 py-1.5 rounded-lg transition-colors ${
-                  typeFilter === "deduction" ? "bg-white text-rose-700 shadow-xs font-semibold" : "hover:text-slate-900"
+                  typeFilter === "deduction"
+                    ? "bg-white text-rose-700 shadow-xs font-semibold"
+                    : "hover:text-slate-900"
                 }`}
               >
                 Potongan
@@ -399,7 +432,9 @@ export default function PayrollDetailsPage() {
           ) : filteredDetails.length === 0 ? (
             <div className="py-16 text-center text-slate-400 space-y-2">
               <Layers className="w-12 h-12 mx-auto text-slate-300" />
-              <p className="text-base font-semibold text-slate-700">Tidak ada detail payroll ditemukan</p>
+              <p className="text-base font-semibold text-slate-700">
+                Tidak ada detail payroll ditemukan
+              </p>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
                 {searchQuery || periodFilter !== "all" || typeFilter !== "all"
                   ? "Coba sesuaikan kata kunci pencarian atau filter yang dipilih."
@@ -410,18 +445,35 @@ export default function PayrollDetailsPage() {
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow className="border-slate-200">
-                  <TableHead className="w-16 font-semibold text-slate-700">ID Detail</TableHead>
-                  <TableHead className="w-20 font-semibold text-slate-700">ID Payroll</TableHead>
-                  <TableHead className="font-semibold text-slate-700">Periode</TableHead>
-                  <TableHead className="font-semibold text-slate-700">ID Karyawan</TableHead>
-                  <TableHead className="font-semibold text-slate-700">Komponen Gaji</TableHead>
-                  <TableHead className="font-semibold text-slate-700">Tipe</TableHead>
-                  <TableHead className="font-semibold text-slate-700 text-right">Nominal</TableHead>
+                  <TableHead className="w-16 font-semibold text-slate-700">
+                    ID Detail
+                  </TableHead>
+                  <TableHead className="w-20 font-semibold text-slate-700">
+                    ID Payroll
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-700">
+                    Periode
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-700">
+                    ID Karyawan
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-700">
+                    Komponen Gaji
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-700">
+                    Tipe
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-700 text-right">
+                    Nominal
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredDetails.map((item) => (
-                  <TableRow key={item.detailId} className="border-slate-100 hover:bg-slate-50/60 transition-colors">
+                  <TableRow
+                    key={item.detailId}
+                    className="border-slate-100 hover:bg-slate-50/60 transition-colors"
+                  >
                     <TableCell className="font-mono text-xs text-slate-500 font-medium">
                       #{item.detailId}
                     </TableCell>
@@ -475,7 +527,9 @@ export default function PayrollDetailsPage() {
           ) : filteredSummaries.length === 0 ? (
             <div className="py-16 text-center text-slate-400 space-y-2">
               <Receipt className="w-12 h-12 mx-auto text-slate-300" />
-              <p className="text-base font-semibold text-slate-700">Tidak ada slip gaji ditemukan</p>
+              <p className="text-base font-semibold text-slate-700">
+                Tidak ada slip gaji ditemukan
+              </p>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
                 {searchQuery || periodFilter !== "all"
                   ? "Coba sesuaikan kata kunci pencarian atau filter periode."
@@ -486,18 +540,35 @@ export default function PayrollDetailsPage() {
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow className="border-slate-200">
-                  <TableHead className="w-20 font-semibold text-slate-700">ID Slip</TableHead>
-                  <TableHead className="font-semibold text-slate-700">Periode</TableHead>
-                  <TableHead className="font-semibold text-slate-700">Karyawan</TableHead>
-                  <TableHead className="font-semibold text-slate-700 text-right">Total Pendapatan</TableHead>
-                  <TableHead className="font-semibold text-slate-700 text-right">Total Potongan</TableHead>
-                  <TableHead className="font-semibold text-slate-700 text-right">Gaji Bersih (Net)</TableHead>
-                  <TableHead className="w-28 text-right font-semibold text-slate-700">Rincian</TableHead>
+                  <TableHead className="w-20 font-semibold text-slate-700">
+                    ID Slip
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-700">
+                    Periode
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-700">
+                    Karyawan
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-700 text-right">
+                    Total Pendapatan
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-700 text-right">
+                    Total Potongan
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-700 text-right">
+                    Gaji Bersih (Net)
+                  </TableHead>
+                  <TableHead className="w-28 text-right font-semibold text-slate-700">
+                    Rincian
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredSummaries.map((slip) => (
-                  <TableRow key={slip.payrollId} className="border-slate-100 hover:bg-slate-50/60 transition-colors">
+                  <TableRow
+                    key={slip.payrollId}
+                    className="border-slate-100 hover:bg-slate-50/60 transition-colors"
+                  >
                     <TableCell className="font-mono text-xs font-semibold text-slate-700">
                       PR-{slip.payrollId}
                     </TableCell>
@@ -511,7 +582,9 @@ export default function PayrollDetailsPage() {
                       <div className="font-medium text-slate-900">
                         {slip.firstName} {slip.lastName || ""}
                       </div>
-                      <div className="font-mono text-xs text-slate-500">{slip.employeeId}</div>
+                      <div className="font-mono text-xs text-slate-500">
+                        {slip.employeeId}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs text-emerald-700 font-medium">
                       +{formatRupiah(slip.totalEarnings)}
@@ -550,7 +623,8 @@ export default function PayrollDetailsPage() {
               Rincian Slip Gaji Karyawan
             </DialogTitle>
             <p className="text-xs text-slate-500">
-              Breakdown komponen penghasilan dan potongan resmi untuk periode ini.
+              Breakdown komponen penghasilan dan potongan resmi untuk periode
+              ini.
             </p>
           </DialogHeader>
 
@@ -562,7 +636,9 @@ export default function PayrollDetailsPage() {
                   <p className="font-bold text-slate-900 text-sm">
                     {selectedSlip.firstName} {selectedSlip.lastName || ""}
                   </p>
-                  <p className="font-mono text-slate-500 mt-0.5">ID: {selectedSlip.employeeId}</p>
+                  <p className="font-mono text-slate-500 mt-0.5">
+                    ID: {selectedSlip.employeeId}
+                  </p>
                 </div>
                 <div className="text-right">
                   <span className="font-semibold text-slate-700">Periode</span>
@@ -574,7 +650,9 @@ export default function PayrollDetailsPage() {
 
               {/* Items Breakdown */}
               <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                <p className="text-xs font-semibold text-slate-700">Daftar Komponen Terhitung:</p>
+                <p className="text-xs font-semibold text-slate-700">
+                  Daftar Komponen Terhitung:
+                </p>
                 {selectedSlipDetails.length === 0 ? (
                   <p className="text-xs text-slate-400 italic">
                     Tidak ada rincian komponen yang tersimpan untuk slip ini.
@@ -592,11 +670,15 @@ export default function PayrollDetailsPage() {
                           ) : (
                             <ArrowDownRight className="w-3.5 h-3.5 text-rose-600" />
                           )}
-                          <span className="font-medium text-slate-800">{d.componentName}</span>
+                          <span className="font-medium text-slate-800">
+                            {d.componentName}
+                          </span>
                         </div>
                         <span
                           className={`font-mono font-semibold ${
-                            d.type === "earning" ? "text-emerald-700" : "text-rose-700"
+                            d.type === "earning"
+                              ? "text-emerald-700"
+                              : "text-rose-700"
                           }`}
                         >
                           {d.type === "earning" ? "+" : "-"}
@@ -640,84 +722,6 @@ export default function PayrollDetailsPage() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* MODAL: GENERATE PAYROLL */}
-      <Dialog open={isGenerateOpen} onOpenChange={setIsGenerateOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl p-6">
-          <DialogHeader className="space-y-1">
-            <DialogTitle className="text-lg font-bold text-slate-900 font-heading">
-              Generate Payroll Karyawan
-            </DialogTitle>
-            <p className="text-xs text-slate-500">
-              Hitung dan buatkan transaksi payroll beserta rincian detailnya berdasarkan alokasi komponen gaji yang telah ditetapkan.
-            </p>
-          </DialogHeader>
-
-          {generateError && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
-              <span>{generateError}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleGeneratePayroll} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-700">
-                Pilih Karyawan <span className="text-rose-500">*</span>
-              </Label>
-              <Select value={genEmployeeId} onValueChange={(val) => setGenEmployeeId(val || "")}>
-                <SelectTrigger className="h-10 rounded-xl">
-                  <SelectValue placeholder="Pilih karyawan..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-56">
-                  {employees.map((emp) => (
-                    <SelectItem key={emp.employeeId} value={emp.employeeId}>
-                      <span className="font-semibold text-slate-900">{emp.employeeId}</span> -{" "}
-                      {emp.firstName} {emp.lastName || ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-700">
-                Periode Payroll (YYYY-MM) <span className="text-rose-500">*</span>
-              </Label>
-              <Input
-                type="text"
-                required
-                value={genPeriod}
-                onChange={(e) => setGenPeriod(e.target.value)}
-                placeholder="2026-11"
-                className="h-10 rounded-xl"
-              />
-              <p className="text-[11px] text-slate-500">
-                Format tahun dan bulan 2 digit (contoh: 2026-11).
-              </p>
-            </div>
-
-            <div className="pt-2 flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsGenerateOpen(false)}
-                className="rounded-xl h-10 px-4 text-xs font-medium"
-              >
-                Batal
-              </Button>
-              <Button
-                type="submit"
-                disabled={isGenerating}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 px-5 text-xs font-medium gap-1.5"
-              >
-                {isGenerating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Generate Payroll
-              </Button>
-            </div>
-          </form>
         </DialogContent>
       </Dialog>
     </div>
