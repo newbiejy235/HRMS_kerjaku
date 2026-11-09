@@ -461,23 +461,6 @@ Dokumentasi API: buka http://localhost:8000/api-docs setelah backend berjalan.
 ------------------------------------------------------------
 12. OBSERVASI / CATATAN PENTING (dari analisis kode)
 ------------------------------------------------------------
-- Tidak ada file uji coba (test) di backend ("test": echo no test).
-- Beberapa route di finance.routes.ts dan fiturHR.controller.ts memiliki
-  referensi ke fungsi yang belum ada / dikomentari (getPayrollAllocationByEmployee,
-  getShiftSettings, createShiftSettings, HROvertime, generateAttendanceStatistics,
-  getAttendanceStatistics, getEmployeeAttendanceStatistics) — perlu dikonfirmasi
-  apakah sudah diekspor di controller agar tidak error runtime.
-- Swagger paths (swagger.ts) hanya mencakup sebagian endpoint; path sisa belum
-  terdaftar sepenuhnya.
-- Token reset-password di auth.controller.ts mencoba mencocokkan token dengan
-  bcrypt.compare terhadap semua request (limit 100) karena kolom token berisi
-  hash — pendekatan unik tetapi tidak efisien pada volume besar.
-- QR code attendance disimpan tanpa hapus yang lama (insert + update pada
-  tabel yang sama), satu token aktif saja di tabel qr_code.
-- Frontend simpan token di localStorage (tidak httpOnly cookie), risiko XSS.
-- CORS backend diatur origin "*" (boleh diakses semua domain) — pertimbangkan
-  batasi untuk produksi.
-- Projekt status: ON GOING (lihat readme.md).
 
 ================================================================================
                        AKHIR DOKUMENTASI
