@@ -5,8 +5,9 @@ import { Request, Response } from "express";
 
 export const getAllCities = async (req: Request, res: Response) => {
   try {
-    const [query] = await db
+    const query = await db
       .select({
+        id: cities.id,
         kota: cities.kota,
         provinsi: provinces.provinsi,
       })
@@ -16,8 +17,7 @@ export const getAllCities = async (req: Request, res: Response) => {
       success: true,
       message: "berhasil ambil data",
       data: {
-        kota: query.kota,
-        provinsi: query.provinsi,
+        query,
       },
     });
   } catch (error) {
