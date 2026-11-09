@@ -172,18 +172,11 @@ export default function KaryawanPage() {
     let active = true;
     (async () => {
       try {
-        const token =  localStorage.getItem("token");
-        const empRes = await fetch("http://localhost:8000/data", {
-          method: "GET", // atau 'POST', 'PUT', 'DELETE', dll.
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`, // Masukkan Bearer Token di sini
-          },
-        });
+        const empRes = await apiFetch("/data");
         const empResult = await empRes.json();
         if (active && empResult.success) setKaryawan(empResult.data);
 
-        const cityRes = await fetch("http://localhost:8000/cities");
+        const cityRes = await apiFetch("/cities");
         const cityResult = await cityRes.json();
 
         if (active && cityResult.success) {

@@ -24,6 +24,7 @@ const menus = {
     { name: "Dashboard", href: "/hr/dashboard", icon: LayoutDashboard },
     { name: "Karyawan", href: "/hr/employees", icon: Users },
     { name: "Kehadiran", href: "/hr/attendance", icon: Clock },
+    { name: "Statistik Kehadiran", href: "/hr/statistic", icon: ChartNoAxesCombined },
     { name: "Kiosk QR Absensi", href: "/attendance/qr/generate", icon: QrCode },
     { name: "Shift", href: "/hr/shift", icon: CalendarDays },
     { name: "Tugaskan Lembur", href: "/hr/lembur", icon: Timer },
@@ -38,7 +39,6 @@ const menus = {
     { name: "Alokasi Gaji", href: "/finance/allocations", icon: UserCheck },
     { name: "Detail Payroll", href: "/finance/details", icon: Receipt },
     { name: "Penggajian", href: "/finance/payroll", icon: FileText },
-    { name: "Laporan", href: "/finance/reports", icon: ChartNoAxesCombined },
   ],
 };
 

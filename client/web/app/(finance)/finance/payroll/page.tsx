@@ -47,6 +47,14 @@ const formatRupiah = (angka: string | number) => {
   }).format(num || 0);
 };
 
+const currentPeriod = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+
+  return `${year}-${month}`;
+};
+
 export default function PayrollPage() {
   const [payrolls, setPayrolls] = useState<Payroll[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -57,13 +65,7 @@ export default function PayrollPage() {
   // Generate payroll states
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const [genEmployeeId, setGenEmployeeId] = useState("");
-  const [genPeriod, setGenPeriod] = useState(() => {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-
-    return `${year}-${month}`;
-  });
+  const [genPeriod, setGenPeriod] = useState("");
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState("");
@@ -239,6 +241,7 @@ export default function PayrollPage() {
           onClick={() => {
             setGenerateError("");
             setSuccessMessage("");
+            setGenPeriod(currentPeriod());
             setIsGenerateOpen(true);
           }}
           className="bg-emerald-600 hover:bg-emerald-700"

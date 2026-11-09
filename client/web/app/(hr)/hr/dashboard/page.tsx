@@ -75,20 +75,6 @@ export default function HRDashboardPage() {
     fetchData();
   }, []);
 
-  const today = getTodayJakarta();
-  const todayAttendance = attendance.filter((a) => a.shiftDate === today);
-
-  const totalKaryawanAktif = employees.filter(
-    (e) => e.employmentStatus === "active"
-  ).length;
-  const totalHadir = todayAttendance.filter(
-    (a) => a.employeeIn !== null
-  ).length;
-  const totalTerlambat = todayAttendance.filter(
-    (a) => a.status === "late"
-  ).length;
-  const totalBelumAbsen = Math.max(0, totalKaryawanAktif - totalHadir);
-
   const getEmployeeName = (employeeId: string) => {
     const emp = employees.find((e) => e.employeeId === employeeId);
     if (!emp) return employeeId;
@@ -102,6 +88,20 @@ export default function HRDashboardPage() {
       </div>
     );
   }
+
+  const today = getTodayJakarta();
+  const todayAttendance = attendance.filter((a) => a.shiftDate === today);
+
+  const totalKaryawanAktif = employees.filter(
+    (e) => e.employmentStatus === "active"
+  ).length;
+  const totalHadir = todayAttendance.filter(
+    (a) => a.employeeIn !== null
+  ).length;
+  const totalTerlambat = todayAttendance.filter(
+    (a) => a.status === "late"
+  ).length;
+  const totalBelumAbsen = Math.max(0, totalKaryawanAktif - totalHadir);
 
   return (
     <div className="space-y-6">

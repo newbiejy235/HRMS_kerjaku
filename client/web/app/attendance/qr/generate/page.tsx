@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -32,6 +32,26 @@ type QrData = {
   expiresAt: string;
 };
 
+let clockCache = 0;
+
+function subscribeClock(onStoreChange: () => void) {
+  const tick = () => {
+    clockCache = Date.now();
+    onStoreChange();
+  };
+  tick();
+  const clockInterval = setInterval(tick, 1000);
+  return () => clearInterval(clockInterval);
+}
+
+function getClockSnapshot() {
+  return clockCache;
+}
+
+function getClockServerSnapshot() {
+  return 0;
+}
+
 export default function AttendanceQrKioskPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [hrEmail, setHrEmail] = useState<string>("");
@@ -51,20 +71,19 @@ export default function AttendanceQrKioskPage() {
   const [generationCount, setGenerationCount] = useState<number>(0);
 
   // Kiosk UI state
-  const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  // Live clock
-  useEffect(() => {
-    const clockInterval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(clockInterval);
-  }, []);
+  // Live clock: read from an external ticking source so the value is never
+  // evaluated during prerender (avoids unstable `new Date()` build error)
+  const currentTime = useSyncExternalStore(
+    subscribeClock,
+    getClockSnapshot,
+    getClockServerSnapshot
+  );
 
   // Check initial authentication
   useEffect(() => {
@@ -247,19 +266,23 @@ export default function AttendanceQrKioskPage() {
   };
 
   // Format Indonesian Date & Time
-  const formattedDate = new Intl.DateTimeFormat("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(currentTime);
+  const formattedDate = currentTime
+    ? new Intl.DateTimeFormat("id-ID", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(currentTime)
+    : "";
 
-  const formattedTime = new Intl.DateTimeFormat("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(currentTime);
+  const formattedTime = currentTime
+    ? new Intl.DateTimeFormat("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).format(currentTime)
+    : "--:--:--";
 
   const progressPercent = Math.max(0, Math.min(100, (secondsLeft / (totalDuration || 60)) * 100));
 

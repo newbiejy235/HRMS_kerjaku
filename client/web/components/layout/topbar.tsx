@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { apiFetch } from "@/lib/api";
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -31,7 +32,6 @@ export function Topbar({ onMenuClick, role }: TopbarProps) {
   const [dataUsers, setDataUsers] = useState<UserType | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
     const dataEmail = localStorage.getItem("email");
     const dataRole = localStorage.getItem("role");
 
@@ -43,16 +43,9 @@ export function Topbar({ onMenuClick, role }: TopbarProps) {
 
     const start = async () => {
       try {
-        const response = await fetch(
-          "http://localhost:8000/activation/pairing",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          },
-        );
+        const response = await apiFetch("/activation/pairing", {
+          method: "POST",
+        });
         if (!response.ok) {
           throw new Error("Gagal mengambil data dari server");
         }
