@@ -227,6 +227,9 @@ export default function PayrollAllocationsPage() {
   const totalEarningAmount = allocations
     .filter((a) => a.type === "earning")
     .reduce((sum, a) => sum + (parseFloat(a.amount) || 0), 0);
+
+  const hasil = totalEarningAmount / allocations.length
+  
   const totalDeductionAmount = allocations
     .filter((a) => a.type === "deduction")
     .reduce((sum, a) => sum + (parseFloat(a.amount) || 0), 0);
@@ -311,9 +314,9 @@ export default function PayrollAllocationsPage() {
             <ArrowUpRight className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-500">Total Pendapatan Rutin</p>
+            <p className="text-xs font-medium text-slate-500">Average Pendapatan Rutin</p>
             <p className="text-xl font-bold text-emerald-600 mt-0.5">
-              {formatRupiah(totalEarningAmount)}
+              {formatRupiah(hasil)}
             </p>
           </div>
         </div>
