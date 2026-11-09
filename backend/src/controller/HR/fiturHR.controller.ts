@@ -281,7 +281,7 @@ export class HRfeatures {
       }
 
       // Validasi hak akses berdasarkan pengguna yang login
-      if (user.role !== "HR") {
+      if (user.role !== "HR" && user.role !=="Finance") {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan mengakses data karyawan",
@@ -291,18 +291,49 @@ export class HRfeatures {
       // Ambil seluruh data karyawan beserta akun login
       const employees = await db
         .select({
+          // Identitas karyawan
           employeeId: employes.employeeId,
+          userId: usersTable.id,
           firstName: employes.firstName,
           lastName: employes.lastName,
           gender: employes.gender,
           noTelp: employes.noTelp,
+
+          // Informasi lokasi
+          citiesId: employes.cities_id,
+          city: cities.kota,
+          province: provinces.provinsi,
+
+          // Informasi pekerjaan
+          idPosition: employes.idPosition,
+          position: position.position_name,
+          idDepartment: employes.idDepartment,
+          department: department.department_name,
           hireDate: employes.hire_date,
+          resignDate: employes.resign_date,
           employmentStatus: employes.employment_status,
+
+          // Informasi akun
           email: usersTable.email,
           role: usersTable.role,
+
+          // Informasi administrasi
+          noRek: employes.noRek,
+          nip: employes.nip,
+          NPWP: employes.NPWP,
+          BPJS_Kesehatan: employes.BPJS_Kesehatan,
+          BPJS_Ketenagakerjaan: employes.BPJS_Ketenagakerjaan,
         })
         .from(employes)
-        .innerJoin(usersTable, eq(employes.userId, usersTable.id));
+        .innerJoin(usersTable, eq(employes.userId, usersTable.id))
+        .leftJoin(cities, eq(employes.cities_id, cities.id))
+        .leftJoin(provinces, eq(cities.provinsi_id, provinces.id))
+        .leftJoin(position, eq(employes.idPosition, position.id_position))
+        .leftJoin(
+          department,
+          eq(employes.idDepartment, department.id_department),
+        )
+        .orderBy(asc(employes.firstName));
 
       return res.status(200).json({
         success: true,
@@ -481,7 +512,6 @@ export class HRfeatures {
         data: updated,
       });
     } catch (error) {
- 
       return res.status(500).json({
         success: false,
         message: "internal server error",
@@ -1453,7 +1483,7 @@ export class HRfeatures {
         });
       }
 
-      if (user.role !== "HR") {
+      if (user.role === "Karyawan" || user.role === null) {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan untuk akses fitur ini",
@@ -1488,7 +1518,6 @@ export class HRfeatures {
         message: "berhasil menambahkan component",
       });
     } catch (error) {
-   
       return res.status(500).json({
         success: false,
         message: "internal server error",
@@ -1507,7 +1536,7 @@ export class HRfeatures {
         });
       }
 
-      if (user.role !== "HR") {
+      if (user.role === "Karyawan" || user.role === null) {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan untuk akses fitur ini",
@@ -1563,7 +1592,7 @@ export class HRfeatures {
         });
       }
 
-      if (user.role !== "HR") {
+      if (user.role === "Karyawan" || user.role === null) {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan untuk akses fitur ini",
@@ -1600,7 +1629,7 @@ export class HRfeatures {
         });
       }
 
-      if (user.role !== "HR") {
+      if (user.role === "Karyawan" || user.role === null) {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan untuk akses fitur ini",
@@ -1659,8 +1688,7 @@ export class HRfeatures {
           message: "Sesi tidak valid",
         });
       }
-
-      if (user.role !== "HR") {
+      if (user.role === "Karyawan" || user.role === null) {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan untuk akses fitur ini",
@@ -1714,7 +1742,7 @@ export class HRfeatures {
         });
       }
 
-      if (user.role !== "HR") {
+      if (user.role === "Karyawan" || user.role === null) {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan untuk akses fitur ini",

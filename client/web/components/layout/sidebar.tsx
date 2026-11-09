@@ -2,7 +2,21 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Clock, CalendarDays, FileText, Settings, LogOut } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  Clock,
+  CalendarDays,
+  FileText,
+  Settings,
+  LogOut,
+  Timer,
+  QrCode,
+  Coins,
+  UserCheck,
+  Receipt,
+  ChartNoAxesCombined
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const menus = {
@@ -10,13 +24,21 @@ const menus = {
     { name: "Dashboard", href: "/hr/dashboard", icon: LayoutDashboard },
     { name: "Karyawan", href: "/hr/employees", icon: Users },
     { name: "Kehadiran", href: "/hr/attendance", icon: Clock },
+    { name: "Statistik Kehadiran", href: "/hr/statistic", icon: ChartNoAxesCombined },
+    { name: "Kiosk QR Absensi", href: "/attendance/qr/generate", icon: QrCode },
     { name: "Shift", href: "/hr/shift", icon: CalendarDays },
-    { name: "Pengajuan", href: "/hr/requests", icon: FileText },
+    { name: "Tugaskan Lembur", href: "/hr/lembur", icon: Timer },
+    { name: "Pengajuan", href: "/hr/pengajuan", icon: FileText },
+    { name: "Komponen Gaji", href: "/hr/payroll/components", icon: Coins },
+    { name: "Alokasi Gaji", href: "/hr/payroll/allocations", icon: UserCheck },
+    { name: "Detail Payroll", href: "/hr/payroll/details", icon: Receipt },
   ],
   finance: [
     { name: "Dashboard", href: "/finance/dashboard", icon: LayoutDashboard },
+    { name: "Komponen Gaji", href: "/finance/components", icon: Coins },
+    { name: "Alokasi Gaji", href: "/finance/allocations", icon: UserCheck },
+    { name: "Detail Payroll", href: "/finance/details", icon: Receipt },
     { name: "Penggajian", href: "/finance/payroll", icon: FileText },
-    { name: "Laporan", href: "/finance/reports", icon: FileText },
   ],
 };
 
@@ -24,6 +46,7 @@ export function Sidebar({ role }: { role: "hr" | "finance" }) {
   const pathname = usePathname();
   const router = useRouter();
   const menuItems = menus[role];
+  const settingsHref = role === "hr" ? "/hr/settings" : "/finance/settings";
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -50,10 +73,15 @@ export function Sidebar({ role }: { role: "hr" | "finance" }) {
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-emerald-50 text-emerald-800"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
               )}
             >
-              <item.icon className={cn("h-[18px] w-[18px]", isActive ? "text-emerald-800" : "text-slate-400")} />
+              <item.icon
+                className={cn(
+                  "h-[18px] w-[18px]",
+                  isActive ? "text-emerald-800" : "text-slate-400",
+                )}
+              />
               {item.name}
             </Link>
           );
@@ -62,10 +90,22 @@ export function Sidebar({ role }: { role: "hr" | "finance" }) {
 
       <div className="p-4 border-t border-border space-y-1">
         <Link
-          href="/settings"
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+          href={settingsHref}
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+            pathname.startsWith(settingsHref)
+              ? "bg-emerald-50 text-emerald-800"
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+          )}
         >
-          <Settings className="h-[18px] w-[18px] text-slate-400" />
+          <Settings
+            className={cn(
+              "h-[18px] w-[18px]",
+              pathname.startsWith(settingsHref)
+                ? "text-emerald-800"
+                : "text-slate-400",
+            )}
+          />
           Pengaturan
         </Link>
         <button

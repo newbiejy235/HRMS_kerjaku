@@ -25,7 +25,7 @@ export class FinanceController {
       }
 
       // Sesuaikan role ini dengan kebijakan akses payroll Kerjaku.
-      if (user.role !== "HR" && user.role !== "Finance") {
+      if (user.role !== "Finance") {
         return res.status(403).json({
           success: false,
           message: "Anda tidak diizinkan untuk akses fitur ini",

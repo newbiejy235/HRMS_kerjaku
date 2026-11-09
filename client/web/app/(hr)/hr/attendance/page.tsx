@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Loader2, QrCode } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 type Attendance = {
   shiftId: number;
@@ -45,9 +47,7 @@ export default function AttendancePage() {
         } else {
           setErrorMsg(result.message || "Gagal mengambil data kehadiran.");
         }
-      } catch (error) {
-        console.log(error);
-
+      } catch {
         setErrorMsg("Tidak dapat terhubung ke server.");
       } finally {
         setIsLoading(false);
@@ -59,13 +59,22 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900 font-heading tracking-tight">
-          Kehadiran Karyawan
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Pantau riwayat absensi masuk dan pulang karyawan.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900 font-heading tracking-tight">
+            Kehadiran Karyawan
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Pantau riwayat absensi masuk dan pulang karyawan.
+          </p>
+        </div>
+
+        <Link href="/attendance/qr/generate">
+          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm h-10 px-4 text-sm font-medium gap-2">
+            <QrCode className="w-4 h-4" />
+            Buka Kiosk QR Tablet
+          </Button>
+        </Link>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
@@ -86,51 +95,57 @@ export default function AttendancePage() {
             <tbody className="divide-y divide-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-emerald-600" />
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary mb-2" />
+                    Memuat data kehadiran...
                   </td>
                 </tr>
               ) : errorMsg ? (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-6 py-12 text-center text-rose-600"
-                  >
+                  <td colSpan={6} className="py-8 text-center text-rose-500">
                     {errorMsg}
                   </td>
                 </tr>
               ) : attendanceData.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-6 py-12 text-center text-slate-500"
-                  >
+                  <td colSpan={6} className="py-8 text-center text-slate-500">
                     Belum ada data kehadiran.
                   </td>
                 </tr>
               ) : (
-                attendanceData.map((row) => (
-                  <tr
-                    key={row.shiftId}
-                    className="hover:bg-slate-50 transition-colors h-12"
-                  >
+                attendanceData.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/50">
                     <td className="px-6 py-4 font-medium text-slate-900">
-                      {row.id_employee}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 tabular-nums">
-                      {formatDate(row.shiftDate)}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 tabular-nums text-center">
-                      {formatTime(row.employeeIn)}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 tabular-nums text-center">
-                      {formatTime(row.employeeOut)}
+                      {item.id_employee}
                     </td>
                     <td className="px-6 py-4 text-slate-600">
-                      {row.employeeLocate || "-"}
+                      {formatDate(item.shiftDate)}
+                    </td>
+                    <td className="px-6 py-4 text-center text-slate-600">
+                      {formatTime(item.employeeIn)}
+                    </td>
+                    <td className="px-6 py-4 text-center text-slate-600">
+                      {formatTime(item.employeeOut)}
                     </td>
                     <td className="px-6 py-4 text-slate-600">
-                      {row.status || "-"}
+                      {item.employeeLocate || "-"}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          item.status === "present"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : item.status === "late"
+                            ? "bg-amber-50 text-amber-700 border border-amber-200"
+                            : "bg-rose-50 text-rose-700 border border-rose-200"
+                        }`}
+                      >
+                        {item.status === "present"
+                          ? "Hadir"
+                          : item.status === "late"
+                          ? "Terlambat"
+                          : "Tidak Hadir"}
+                      </span>
                     </td>
                   </tr>
                 ))
