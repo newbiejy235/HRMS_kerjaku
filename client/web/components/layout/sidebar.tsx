@@ -29,9 +29,6 @@ const menus = {
     { name: "Shift", href: "/hr/shift", icon: CalendarDays },
     { name: "Tugaskan Lembur", href: "/hr/lembur", icon: Timer },
     { name: "Pengajuan", href: "/hr/pengajuan", icon: FileText },
-    { name: "Komponen Gaji", href: "/hr/payroll/components", icon: Coins },
-    { name: "Alokasi Gaji", href: "/hr/payroll/allocations", icon: UserCheck },
-    { name: "Detail Payroll", href: "/hr/payroll/details", icon: Receipt },
   ],
   finance: [
     { name: "Dashboard", href: "/finance/dashboard", icon: LayoutDashboard },
