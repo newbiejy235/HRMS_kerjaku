@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-warm: #FAF7F2;
+    --ink-black: #121212;
+    --ink-muted: #6B6862;
+    --ink-border: #121212;
+    --accent-warm: #C25E2E;
+    --accent-light: #FCEFEA;
+    --surface-card: #FFFFFF;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html,
+  body {
+    background-color: var(--bg-warm);
+    color: var(--ink-black);
+    min-height: 100dvh;
+    margin: 0;
+    padding: 0;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    overscroll-behavior-y: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Prevent iOS zoom on inputs */
+  input,
+  button,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Non-text UI touch behavior */
+  button,
+  .no-select {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+
+/* Ink Outline System */
+.ink-card {
+  background-color: #FFFFFF;
+  border: 2px solid var(--ink-black);
+  border-radius: 1.25rem;
+  box-shadow: 0 1px 0 rgba(18, 18, 18, 0.05);
+}
+
+.ink-card-cream {
+  background-color: #F4EFE6;
+  border: 2px solid var(--ink-black);
+  border-radius: 1.25rem;
+}
+
+.ink-btn-black {
+  background-color: var(--ink-black);
+  color: #FFFFFF;
+  border: 2px solid var(--ink-black);
+  border-radius: 9999px;
+  font-weight: 700;
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+.ink-btn-black:active {
+  transform: scale(0.98);
+}
+
+.ink-btn-outline {
+  background-color: #FFFFFF;
+  color: var(--ink-black);
+  border: 2px solid var(--ink-black);
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: transform 0.1s ease, background-color 0.1s ease;
+}
+
+.ink-btn-outline:active {
+  transform: scale(0.96);
+  background-color: #F4EFE6;
+}
+
+.ink-input {
+  border: 2px solid var(--ink-black);
+  border-radius: 9999px;
+  background-color: #FFFFFF;
+  color: var(--ink-black);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ink-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(194, 94, 46, 0.2);
+}
+
+.ink-input-error {
+  border-color: #DC2626;
+  background-color: #FFF5F5;
+}
+
+/* Safe Area Insets */
+.safe-top {
+  padding-top: max(env(safe-area-inset-top, 0px), 12px);
+}
+
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+}
+
+/* Respect motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
