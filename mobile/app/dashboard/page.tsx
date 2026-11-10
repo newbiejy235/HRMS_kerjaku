@@ -240,14 +240,14 @@ export default function DashboardPage() {
                     >
                       {/* Aksen garis vertikal di kiri */}
                       <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-neutral-900 rounded-l-full" />
-
+                      
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <span className="inline-block px-2.5 py-1 mb-2 text-[10px] font-bold tracking-wider uppercase bg-neutral-900 text-white rounded-full">
                             {shift.shiftDate}
                           </span>
                           <h4 className="text-xl font-extrabold tracking-tight text-neutral-900">
-                            {formatShiftCategory(shift.currentShift?.category)}
+                            {formatShiftCategory(shift.category)}
                           </h4>
                         </div>
                       </div>
@@ -257,7 +257,7 @@ export default function DashboardPage() {
                           <Clock className="w-4 h-4 text-neutral-400" />
                           <span className="text-neutral-900">
                             {formatShiftTime(shift.shiftDate)} -{" "}
-                            {formatShiftTime(shift.shiftTime.toLocaleString())}
+                            {formatShiftTime(shift.normal_time_in)}
                           </span>
                         </div>
 

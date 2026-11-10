@@ -43,7 +43,6 @@ import crypto from "crypto";
 import { employes } from "../../config/schema";
 import { bot } from "../../config/telegramBot";
 import { AuthRequest } from "../../middleware/users.middleware";
-import ExcelJS from "exceljs";
 import { employeePermission } from "../../config/schema";
 import {
   DEFAULT_EFFECTIVE_DAYS,
@@ -1005,299 +1004,299 @@ export class HRfeatures {
     } catch (error) {}
   };
 
-  exportExcelAttendance = async (req: AuthRequest, res: Response) => {
-    try {
-      const user = req.user;
+  // exportExcelAttendance = async (req: AuthRequest, res: Response) => {
+  //   try {
+  //     const user = req.user;
 
-      if (!user?.userId) {
-        return res
-          .status(401)
-          .json({ success: false, message: "Sesi tidak valid" });
-      }
+  //     if (!user?.userId) {
+  //       return res
+  //         .status(401)
+  //         .json({ success: false, message: "Sesi tidak valid" });
+  //     }
 
-      if (user.role !== "HR") {
-        return res.status(403).json({
-          success: false,
-          message: "Anda tidak diizinkan melihat jadwal shift karyawan",
-        });
-      }
+  //     if (user.role !== "HR") {
+  //       return res.status(403).json({
+  //         success: false,
+  //         message: "Anda tidak diizinkan melihat jadwal shift karyawan",
+  //       });
+  //     }
 
-      // 1. Ambil data dari database
-      const data = await db.select().from(employeeAttendance);
+  //     // 1. Ambil data dari database
+  //     const data = await db.select().from(employeeAttendance);
 
-      // 2. Buat workbook
-      const workbook = new ExcelJS.Workbook();
+  //     // 2. Buat workbook
+  //     const workbook = new ExcelJS.Workbook();
 
-      // 3. Buat worksheet
-      const worksheet = workbook.addWorksheet("Data Karyawan");
+  //     // 3. Buat worksheet
+  //     const worksheet = workbook.addWorksheet("Data Karyawan");
 
-      // 4. Buat kolom
-      worksheet.columns = [
-        { header: "ID", key: "id", width: 10 },
-        { header: "Tanggal masuk", key: "tanggal", width: 30 },
-        { header: "absensi masuk", key: "absenMasuk", width: 35 },
-        { header: "absensi keluar", key: "absenKeluar", width: 35 },
-        { header: "kode karyawan", key: "code", width: 50 },
-      ];
+  //     // 4. Buat kolom
+  //     worksheet.columns = [
+  //       { header: "ID", key: "id", width: 10 },
+  //       { header: "Tanggal masuk", key: "tanggal", width: 30 },
+  //       { header: "absensi masuk", key: "absenMasuk", width: 35 },
+  //       { header: "absensi keluar", key: "absenKeluar", width: 35 },
+  //       { header: "kode karyawan", key: "code", width: 50 },
+  //     ];
 
-      // 5. Masukkan data
-      data.forEach((attendance) => {
-        worksheet.addRow({
-          id: attendance.shiftId,
-          tanggal: attendance.shiftDate,
-          absenMasuk: attendance.employeeIn,
-          absenKeluar: attendance.employeeOut,
-          code: attendance.id_employee,
-        });
-      });
+  //     // 5. Masukkan data
+  //     data.forEach((attendance) => {
+  //       worksheet.addRow({
+  //         id: attendance.shiftId,
+  //         tanggal: attendance.shiftDate,
+  //         absenMasuk: attendance.employeeIn,
+  //         absenKeluar: attendance.employeeOut,
+  //         code: attendance.id_employee,
+  //       });
+  //     });
 
-      // 6. Kirim file ke client
-      res.setHeader(
-        "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      );
+  //     // 6. Kirim file ke client
+  //     res.setHeader(
+  //       "Content-Type",
+  //       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  //     );
 
-      res.setHeader(
-        "Content-Disposition",
-        'attachment; filename="data-karyawan.xlsx"',
-      );
+  //     res.setHeader(
+  //       "Content-Disposition",
+  //       'attachment; filename="data-karyawan.xlsx"',
+  //     );
 
-      await workbook.xlsx.write(res);
+  //     await workbook.xlsx.write(res);
 
-      res.end();
-    } catch (error) {
-      console.error(error);
+  //     res.end();
+  //   } catch (error) {
+  //     console.error(error);
 
-      res.status(500).json({
-        success: false,
-        message: "Gagal melakukan export Excel",
-      });
-    }
-  };
+  //     res.status(500).json({
+  //       success: false,
+  //       message: "Gagal melakukan export Excel",
+  //     });
+  //   }
+  // };
 
-  exportExcelShift = async (req: AuthRequest, res: Response) => {
-    try {
-      const user = req.user;
+  // exportExcelShift = async (req: AuthRequest, res: Response) => {
+  //   try {
+  //     const user = req.user;
 
-      if (!user?.userId) {
-        return res.status(401).json({
-          success: false,
-          message: "Sesi tidak valid",
-        });
-      }
+  //     if (!user?.userId) {
+  //       return res.status(401).json({
+  //         success: false,
+  //         message: "Sesi tidak valid",
+  //       });
+  //     }
 
-      if (user.role !== "HR") {
-        return res.status(403).json({
-          success: false,
-          message: "Anda tidak diizinkan melihat jadwal shift karyawan",
-        });
-      }
+  //     if (user.role !== "HR") {
+  //       return res.status(403).json({
+  //         success: false,
+  //         message: "Anda tidak diizinkan melihat jadwal shift karyawan",
+  //       });
+  //     }
 
-      // 1. Ambil data shift beserta relasinya
-      const data = await db
-        .select({
-          shiftId: shiftSchedule.shiftId,
-          shiftDate: shiftSchedule.shiftDate,
-          employeeId: employes.employeeId,
-          firstName: employes.firstName,
-          lastName: employes.lastName,
-          category: attendanceSettings.category,
-          normalTimeIn: attendanceSettings.normal_time_in,
-          normalTimeOut: attendanceSettings.normal_time_out,
-          upcomingShiftDate: shiftSchedule.upcomingShiftDate,
-          employeeLocate: shiftSchedule.employeeLocate,
-        })
-        .from(shiftSchedule)
-        .leftJoin(employes, eq(shiftSchedule.id_employee, employes.employeeId))
-        .leftJoin(
-          attendanceSettings,
-          eq(shiftSchedule.shiftTime, attendanceSettings.id_settings),
-        );
+  //     // 1. Ambil data shift beserta relasinya
+  //     const data = await db
+  //       .select({
+  //         shiftId: shiftSchedule.shiftId,
+  //         shiftDate: shiftSchedule.shiftDate,
+  //         employeeId: employes.employeeId,
+  //         firstName: employes.firstName,
+  //         lastName: employes.lastName,
+  //         category: attendanceSettings.category,
+  //         normalTimeIn: attendanceSettings.normal_time_in,
+  //         normalTimeOut: attendanceSettings.normal_time_out,
+  //         upcomingShiftDate: shiftSchedule.upcomingShiftDate,
+  //         employeeLocate: shiftSchedule.employeeLocate,
+  //       })
+  //       .from(shiftSchedule)
+  //       .leftJoin(employes, eq(shiftSchedule.id_employee, employes.employeeId))
+  //       .leftJoin(
+  //         attendanceSettings,
+  //         eq(shiftSchedule.shiftTime, attendanceSettings.id_settings),
+  //       );
 
-      // 2. Buat workbook
-      const workbook = new ExcelJS.Workbook();
+  //     // 2. Buat workbook
+  //     const workbook = new ExcelJS.Workbook();
 
-      // 3. Buat worksheet
-      const worksheet = workbook.addWorksheet("Jadwal Shift");
+  //     // 3. Buat worksheet
+  //     const worksheet = workbook.addWorksheet("Jadwal Shift");
 
-      // 4. Buat kolom
-      worksheet.columns = [
-        { header: "ID Shift", key: "shiftId", width: 15 },
-        { header: "Tanggal Shift", key: "shiftDate", width: 20 },
-        { header: "Kode Karyawan", key: "employeeId", width: 20 },
-        { header: "Nama Depan", key: "firstName", width: 20 },
-        { header: "Nama Belakang", key: "lastName", width: 20 },
-        { header: "Kategori Shift", key: "category", width: 20 },
-        { header: "Jam Masuk", key: "normalTimeIn", width: 20 },
-        { header: "Jam Keluar", key: "normalTimeOut", width: 20 },
-        {
-          header: "Tanggal Shift Berikutnya",
-          key: "upcomingShiftDate",
-          width: 25,
-        },
-        { header: "Lokasi Karyawan", key: "employeeLocate", width: 35 },
-      ];
+  //     // 4. Buat kolom
+  //     worksheet.columns = [
+  //       { header: "ID Shift", key: "shiftId", width: 15 },
+  //       { header: "Tanggal Shift", key: "shiftDate", width: 20 },
+  //       { header: "Kode Karyawan", key: "employeeId", width: 20 },
+  //       { header: "Nama Depan", key: "firstName", width: 20 },
+  //       { header: "Nama Belakang", key: "lastName", width: 20 },
+  //       { header: "Kategori Shift", key: "category", width: 20 },
+  //       { header: "Jam Masuk", key: "normalTimeIn", width: 20 },
+  //       { header: "Jam Keluar", key: "normalTimeOut", width: 20 },
+  //       {
+  //         header: "Tanggal Shift Berikutnya",
+  //         key: "upcomingShiftDate",
+  //         width: 25,
+  //       },
+  //       { header: "Lokasi Karyawan", key: "employeeLocate", width: 35 },
+  //     ];
 
-      // 5. Masukkan data
-      data.forEach((shift) => {
-        worksheet.addRow({
-          shiftId: shift.shiftId,
-          shiftDate: shift.shiftDate,
-          employeeId: shift.employeeId,
-          firstName: shift.firstName,
-          lastName: shift.lastName ?? "-",
-          category: shift.category,
-          normalTimeIn: shift.normalTimeIn ?? "-",
-          normalTimeOut: shift.normalTimeOut ?? "-",
-          upcomingShiftDate: shift.upcomingShiftDate ?? "-",
-          employeeLocate: shift.employeeLocate ?? "-",
-        });
-      });
+  //     // 5. Masukkan data
+  //     data.forEach((shift) => {
+  //       worksheet.addRow({
+  //         shiftId: shift.shiftId,
+  //         shiftDate: shift.shiftDate,
+  //         employeeId: shift.employeeId,
+  //         firstName: shift.firstName,
+  //         lastName: shift.lastName ?? "-",
+  //         category: shift.category,
+  //         normalTimeIn: shift.normalTimeIn ?? "-",
+  //         normalTimeOut: shift.normalTimeOut ?? "-",
+  //         upcomingShiftDate: shift.upcomingShiftDate ?? "-",
+  //         employeeLocate: shift.employeeLocate ?? "-",
+  //       });
+  //     });
 
-      // 6. Kirim file ke client
-      res.setHeader(
-        "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      );
+  //     // 6. Kirim file ke client
+  //     res.setHeader(
+  //       "Content-Type",
+  //       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  //     );
 
-      res.setHeader(
-        "Content-Disposition",
-        'attachment; filename="data-shift.xlsx"',
-      );
+  //     res.setHeader(
+  //       "Content-Disposition",
+  //       'attachment; filename="data-shift.xlsx"',
+  //     );
 
-      await workbook.xlsx.write(res);
+  //     await workbook.xlsx.write(res);
 
-      res.end();
-    } catch (error) {
-      console.error(error);
+  //     res.end();
+  //   } catch (error) {
+  //     console.error(error);
 
-      if (!res.headersSent) {
-        res.status(500).json({
-          success: false,
-          message: "Gagal melakukan export Excel",
-        });
-      }
-    }
-  };
+  //     if (!res.headersSent) {
+  //       res.status(500).json({
+  //         success: false,
+  //         message: "Gagal melakukan export Excel",
+  //       });
+  //     }
+  //   }
+  // };
 
-  exportExcelEmployee = async (req: AuthRequest, res: Response) => {
-    try {
-      const user = req.user;
+  // exportExcelEmployee = async (req: AuthRequest, res: Response) => {
+  //   try {
+  //     const user = req.user;
 
-      if (!user?.userId) {
-        return res.status(401).json({
-          success: false,
-          message: "Sesi tidak valid",
-        });
-      }
+  //     if (!user?.userId) {
+  //       return res.status(401).json({
+  //         success: false,
+  //         message: "Sesi tidak valid",
+  //       });
+  //     }
 
-      if (user.role !== "HR") {
-        return res.status(403).json({
-          success: false,
-          message: "Anda tidak diizinkan melihat data karyawan",
-        });
-      }
+  //     if (user.role !== "HR") {
+  //       return res.status(403).json({
+  //         success: false,
+  //         message: "Anda tidak diizinkan melihat data karyawan",
+  //       });
+  //     }
 
-      // 1. Ambil data karyawan beserta relasinya
-      const data = await db
-        .select({
-          employeeId: employes.employeeId,
-          firstName: employes.firstName,
-          lastName: employes.lastName,
-          email: usersTable.email,
-          gender: employes.gender,
-          noTelp: employes.noTelp,
-          noRek: employes.noRek,
-          nip: employes.nip,
-          hireDate: employes.hire_date,
-          resignDate: employes.resign_date,
-          employmentStatus: employes.employment_status,
-          city: cities.kota,
-          province: provinces.provinsi,
-          position: position.position_name,
-          department: department.department_name,
-        })
-        .from(employes)
-        .leftJoin(usersTable, eq(employes.userId, usersTable.id))
-        .leftJoin(cities, eq(employes.cities_id, cities.id))
-        .leftJoin(provinces, eq(cities.provinsi_id, provinces.id))
-        .leftJoin(position, eq(employes.idPosition, position.id_position))
-        .leftJoin(
-          department,
-          eq(employes.idDepartment, department.id_department),
-        );
+  //     // 1. Ambil data karyawan beserta relasinya
+  //     const data = await db
+  //       .select({
+  //         employeeId: employes.employeeId,
+  //         firstName: employes.firstName,
+  //         lastName: employes.lastName,
+  //         email: usersTable.email,
+  //         gender: employes.gender,
+  //         noTelp: employes.noTelp,
+  //         noRek: employes.noRek,
+  //         nip: employes.nip,
+  //         hireDate: employes.hire_date,
+  //         resignDate: employes.resign_date,
+  //         employmentStatus: employes.employment_status,
+  //         city: cities.kota,
+  //         province: provinces.provinsi,
+  //         position: position.position_name,
+  //         department: department.department_name,
+  //       })
+  //       .from(employes)
+  //       .leftJoin(usersTable, eq(employes.userId, usersTable.id))
+  //       .leftJoin(cities, eq(employes.cities_id, cities.id))
+  //       .leftJoin(provinces, eq(cities.provinsi_id, provinces.id))
+  //       .leftJoin(position, eq(employes.idPosition, position.id_position))
+  //       .leftJoin(
+  //         department,
+  //         eq(employes.idDepartment, department.id_department),
+  //       );
 
-      // 2. Buat workbook
-      const workbook = new ExcelJS.Workbook();
+  //     // 2. Buat workbook
+  //     const workbook = new ExcelJS.Workbook();
 
-      // 3. Buat worksheet
-      const worksheet = workbook.addWorksheet("Data Karyawan");
+  //     // 3. Buat worksheet
+  //     const worksheet = workbook.addWorksheet("Data Karyawan");
 
-      // 4. Buat kolom
-      worksheet.columns = [
-        { header: "Kode Karyawan", key: "employeeId", width: 20 },
-        { header: "Nama Depan", key: "firstName", width: 20 },
-        { header: "Nama Belakang", key: "lastName", width: 20 },
-        { header: "Email", key: "email", width: 30 },
-        { header: "Jenis Kelamin", key: "gender", width: 15 },
-        { header: "No Telepon", key: "noTelp", width: 20 },
-        { header: "No Rekening", key: "noRek", width: 20 },
-        { header: "NIP", key: "nip", width: 20 },
-        { header: "Tanggal Masuk", key: "hireDate", width: 20 },
-        { header: "Tanggal Resign", key: "resignDate", width: 20 },
-        { header: "Status", key: "employmentStatus", width: 15 },
-        { header: "Kota", key: "city", width: 20 },
-        { header: "Provinsi", key: "province", width: 20 },
-        { header: "Jabatan", key: "position", width: 25 },
-        { header: "Departemen", key: "department", width: 25 },
-      ];
+  //     // 4. Buat kolom
+  //     worksheet.columns = [
+  //       { header: "Kode Karyawan", key: "employeeId", width: 20 },
+  //       { header: "Nama Depan", key: "firstName", width: 20 },
+  //       { header: "Nama Belakang", key: "lastName", width: 20 },
+  //       { header: "Email", key: "email", width: 30 },
+  //       { header: "Jenis Kelamin", key: "gender", width: 15 },
+  //       { header: "No Telepon", key: "noTelp", width: 20 },
+  //       { header: "No Rekening", key: "noRek", width: 20 },
+  //       { header: "NIP", key: "nip", width: 20 },
+  //       { header: "Tanggal Masuk", key: "hireDate", width: 20 },
+  //       { header: "Tanggal Resign", key: "resignDate", width: 20 },
+  //       { header: "Status", key: "employmentStatus", width: 15 },
+  //       { header: "Kota", key: "city", width: 20 },
+  //       { header: "Provinsi", key: "province", width: 20 },
+  //       { header: "Jabatan", key: "position", width: 25 },
+  //       { header: "Departemen", key: "department", width: 25 },
+  //     ];
 
-      // 5. Masukkan data
-      data.forEach((employee) => {
-        worksheet.addRow({
-          employeeId: employee.employeeId,
-          firstName: employee.firstName,
-          lastName: employee.lastName ?? "-",
-          email: employee.email,
-          gender: employee.gender,
-          noTelp: employee.noTelp ?? "-",
-          noRek: employee.noRek,
-          nip: employee.nip,
-          hireDate: employee.hireDate,
-          resignDate: employee.resignDate ?? "-",
-          employmentStatus: employee.employmentStatus,
-          city: employee.city,
-          province: employee.province,
-          position: employee.position,
-          department: employee.department,
-        });
-      });
+  //     // 5. Masukkan data
+  //     data.forEach((employee) => {
+  //       worksheet.addRow({
+  //         employeeId: employee.employeeId,
+  //         firstName: employee.firstName,
+  //         lastName: employee.lastName ?? "-",
+  //         email: employee.email,
+  //         gender: employee.gender,
+  //         noTelp: employee.noTelp ?? "-",
+  //         noRek: employee.noRek,
+  //         nip: employee.nip,
+  //         hireDate: employee.hireDate,
+  //         resignDate: employee.resignDate ?? "-",
+  //         employmentStatus: employee.employmentStatus,
+  //         city: employee.city,
+  //         province: employee.province,
+  //         position: employee.position,
+  //         department: employee.department,
+  //       });
+  //     });
 
-      // 6. Kirim file ke client
-      res.setHeader(
-        "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      );
+  //     // 6. Kirim file ke client
+  //     res.setHeader(
+  //       "Content-Type",
+  //       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  //     );
 
-      res.setHeader(
-        "Content-Disposition",
-        'attachment; filename="data-karyawan.xlsx"',
-      );
+  //     res.setHeader(
+  //       "Content-Disposition",
+  //       'attachment; filename="data-karyawan.xlsx"',
+  //     );
 
-      await workbook.xlsx.write(res);
+  //     await workbook.xlsx.write(res);
 
-      res.end();
-    } catch (error) {
-      console.error(error);
+  //     res.end();
+  //   } catch (error) {
+  //     console.error(error);
 
-      if (!res.headersSent) {
-        res.status(500).json({
-          success: false,
-          message: "Gagal melakukan export Excel",
-        });
-      }
-    }
-  };
+  //     if (!res.headersSent) {
+  //       res.status(500).json({
+  //         success: false,
+  //         message: "Gagal melakukan export Excel",
+  //       });
+  //     }
+  //   }
+  // };
 
   HRresponsePermission = async (req: AuthRequest, res: Response) => {
     try {

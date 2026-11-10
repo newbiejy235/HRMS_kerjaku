@@ -62,6 +62,12 @@ export interface ShiftScheduleItem {
   category: string;
   normal_time_in: string;
   normal_time_out: string;
+  upcomingShiftDate: string;
+  upcomingShiftTime: number;
+  upcomingCategory: string;
+  upcomingNormalTimeIn: string;
+  upcomingNormalTimeOut: string;
+  upcomingToleranceTime: string;
 }
 
 export interface PayrollDetail {

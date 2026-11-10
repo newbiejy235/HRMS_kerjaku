@@ -30,6 +30,10 @@ import TelegramService from "../../services/notification.service";
 // const escapeHtml = (s: string) =>
 //   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+import { alias } from "drizzle-orm/pg-core";
+
+const upcomingSettings = alias(attendanceSettings, "upcoming_settings");
+
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -113,17 +117,35 @@ export class EmployeeFeatures {
 
       const shiftSchedules = await db
         .select({
+          // Data utama shift
           shiftId: shiftSchedule.shiftId,
           shiftDate: shiftSchedule.shiftDate,
           employeeLocate: shiftSchedule.employeeLocate,
+          id_employee: shiftSchedule.id_employee,
+
+          // Shift saat ini
+          shiftTime: shiftSchedule.shiftTime,
           category: attendanceSettings.category,
           normal_time_in: attendanceSettings.normal_time_in,
           normal_time_out: attendanceSettings.normal_time_out,
+          tolerance_time: attendanceSettings.tolerance_time,
+
+          // Jadwal shift berikutnya
+          upcomingShiftDate: shiftSchedule.upcomingShiftDate,
+          upcomingShiftTime: shiftSchedule.upcomingShiftTime,
+          upcomingCategory: upcomingSettings.category,
+          upcomingNormalTimeIn: upcomingSettings.normal_time_in,
+          upcomingNormalTimeOut: upcomingSettings.normal_time_out,
+          upcomingToleranceTime: upcomingSettings.tolerance_time,
         })
         .from(shiftSchedule)
         .innerJoin(
           attendanceSettings,
           eq(shiftSchedule.shiftTime, attendanceSettings.id_settings),
+        )
+        .leftJoin(
+          upcomingSettings,
+          eq(shiftSchedule.upcomingShiftTime, upcomingSettings.id_settings),
         )
         .where(eq(shiftSchedule.id_employee, employee.employeeId))
         .orderBy(shiftSchedule.shiftDate);
@@ -146,7 +168,7 @@ export class EmployeeFeatures {
   generateAttendanceQr = async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user?.userId;
-      const user = req.user?.role
+      const user = req.user?.role;
 
       if (!userId) {
         return res.status(401).json({
@@ -721,13 +743,11 @@ export class EmployeeFeatures {
         });
       }
 
-
       const [userAccount] = await db
         .select()
         .from(employes)
         .where(eq(employes.userId, user.userId))
         .limit(1);
-
 
       // Ambil payroll berdasarkan ID
       const [payrollData] = await db
